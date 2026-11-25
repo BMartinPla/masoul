@@ -62,6 +62,14 @@ export function generateSanctuary(): GeneratedDungeon {
     }
   }
 
+  // Decorative gothic pillars & statues along Sanctuary hall
+  for (const px of [6, 16, 24, 31, 39, 47]) {
+    props.push({ kind: 'pillar', x: px * TILE_SIZE, y: floorY, variant: 0 });
+  }
+  for (const sx of [10.5, 46]) {
+    props.push({ kind: 'statue', x: sx * TILE_SIZE, y: floorY, variant: 0 });
+  }
+
   // Interactive Sanctuary Stations
   interactives.push({ kind: 'soul_altar', x: 13 * TILE_SIZE, y: floorY, id: 'Soul Altar [F]' });
   lights.push({ x: 13 * TILE_SIZE, y: floorY - 26, radius: 105, color: '#7ef5eb', intensity: 1.0, flicker: 0.06 });

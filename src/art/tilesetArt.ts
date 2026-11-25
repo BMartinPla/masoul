@@ -92,6 +92,8 @@ export interface TilesetAssets {
   trainingDummy: HTMLCanvasElement;
   deedsLectern: HTMLCanvasElement;
   consecratedBanner: HTMLCanvasElement;
+  heroPedestal: HTMLCanvasElement;
+  statue: Record<BiomeId, HTMLCanvasElement>;
   floorClutter: Record<BiomeId, [HTMLCanvasElement, HTMLCanvasElement, HTMLCanvasElement]>;
 }
 
@@ -170,39 +172,80 @@ function bakePlatformVariant(
   capRight: boolean,
 ): HTMLCanvasElement {
   const buf = new PixelBuffer(TILE_PX, TILE_PX, 1);
-  // Heavy medieval oak & iron-strapped walkway beam (24x24)
-  buf.rect(0, 0, TILE_PX, 7, PAL.wood1);
-  buf.rect(0, 1, TILE_PX, 5, PAL.wood2);
+  // Heavy medieval oak & wrought-iron walkway deck (top surface at y=0 for 1:1 collision)
+  buf.rect(0, 0, TILE_PX, 1, PAL.outline);
   buf.rect(0, 1, TILE_PX, 1, PAL.wood4);
-  buf.rect(0, 3, TILE_PX, 1, PAL.wood1);
-  buf.rect(0, 6, TILE_PX, 1, PAL.outline);
+  buf.rect(0, 2, TILE_PX, 3, PAL.wood3);
+  buf.rect(0, 4, TILE_PX, 2, PAL.wood2);
+  buf.rect(0, 5, TILE_PX, 1, PAL.outline);
 
-  // Continuous lower iron truss bar
-  buf.rect(0, 7, TILE_PX, 2, PAL.iron0);
-  buf.rect(0, 7, TILE_PX, 1, PAL.iron2);
+  // Oak plank vertical seams & biome moss/trim flecks
+  for (const sx of [8, 16]) {
+    buf.rect(sx, 1, 1, 4, PAL.wood1);
+    buf.setRaw(sx - 1, 2, PAL.gold3);
+    buf.setRaw(sx + 1, 4, PAL.steel4);
+  }
+  buf.setRaw(4, 1, pal.topTrim);
+  buf.setRaw(19, 1, pal.topTrim);
 
-  if (capLeft) {
-    buf.rect(0, 0, 4, 9, pal.baseLight);
-    buf.rect(0, 0, 1, 9, PAL.outline);
-    buf.setRaw(2, 2, PAL.steel4);
-    buf.setRaw(2, 5, PAL.steel4);
-    buf.line(2, 8, 7, 14, PAL.iron1, 2);
-    buf.line(3, 8, 7, 13, PAL.steel3, 1);
-  } else {
-    buf.setRaw(0, 2, PAL.wood0);
-    buf.setRaw(0, 4, PAL.wood0);
+  // Structural iron-strapped beam & open diagonal lattice truss
+  buf.rect(0, 6, TILE_PX, 3, PAL.iron0);
+  buf.rect(0, 6, TILE_PX, 1, PAL.iron2);
+  buf.rect(0, 8, TILE_PX, 1, PAL.iron1);
+  for (let rx = 3; rx < TILE_PX; rx += 6) {
+    buf.setRaw(rx, 7, PAL.steel4);
+  }
+  // Under-truss lattice
+  buf.rect(0, 12, TILE_PX, 1, PAL.iron0);
+  for (let lx = 0; lx < TILE_PX; lx += 8) {
+    buf.line(lx, 9, lx + 4, 12, PAL.iron1, 1);
+    buf.line(lx + 7, 9, lx + 3, 12, PAL.iron2, 1);
   }
 
-  if (capRight) {
-    buf.rect(TILE_PX - 4, 0, 4, 9, pal.baseLight);
-    buf.rect(TILE_PX - 1, 0, 1, 9, PAL.outline);
+  if (capLeft && capRight) {
+    // 1-tile platform: chiseled stone-and-iron gothic corbel pedestal underneath
+    buf.rect(0, 0, 4, 10, pal.baseLight);
+    buf.rect(TILE_PX - 4, 0, 4, 10, pal.baseLight);
+    buf.rect(0, 0, 1, 10, PAL.outline);
+    buf.rect(TILE_PX - 1, 0, 1, 10, PAL.outline);
+    buf.setRaw(2, 2, PAL.steel4);
     buf.setRaw(TILE_PX - 3, 2, PAL.steel4);
-    buf.setRaw(TILE_PX - 3, 5, PAL.steel4);
-    buf.line(TILE_PX - 3, 8, TILE_PX - 8, 14, PAL.iron1, 2);
-    buf.line(TILE_PX - 4, 8, TILE_PX - 8, 13, PAL.steel3, 1);
+    buf.poly(
+      [
+        [5, 9],
+        [18, 9],
+        [15, 19],
+        [8, 19],
+      ],
+      pal.baseDark,
+    );
+    buf.rect(8, 10, 8, 2, PAL.iron2);
+    buf.rect(10, 13, 4, 5, pal.baseMid);
+    buf.setRaw(11, 14, pal.accent);
   } else {
-    buf.rect(12, 1, 1, 5, PAL.wood0);
-    buf.setRaw(12, 2, PAL.steel3);
+    if (capLeft) {
+      buf.rect(0, 0, 5, 10, pal.baseLight);
+      buf.rect(0, 0, 1, 10, PAL.outline);
+      buf.rect(4, 1, 1, 8, PAL.iron2);
+      buf.setRaw(2, 2, PAL.steel4);
+      buf.setRaw(2, 7, PAL.steel4);
+      // Sweeping wrought-iron scroll bracket
+      buf.line(1, 10, 1, 19, PAL.iron1, 2);
+      buf.line(2, 10, 10, 18, PAL.iron2, 2);
+      buf.line(3, 10, 9, 16, PAL.steel3, 1);
+      buf.setRaw(10, 18, PAL.steel4);
+    }
+    if (capRight) {
+      buf.rect(TILE_PX - 5, 0, 5, 10, pal.baseLight);
+      buf.rect(TILE_PX - 1, 0, 1, 10, PAL.outline);
+      buf.rect(TILE_PX - 5, 1, 1, 8, PAL.iron2);
+      buf.setRaw(TILE_PX - 3, 2, PAL.steel4);
+      buf.setRaw(TILE_PX - 3, 7, PAL.steel4);
+      buf.line(TILE_PX - 2, 10, TILE_PX - 2, 19, PAL.iron1, 2);
+      buf.line(TILE_PX - 3, 10, TILE_PX - 11, 18, PAL.iron2, 2);
+      buf.line(TILE_PX - 4, 10, TILE_PX - 10, 16, PAL.steel3, 1);
+      buf.setRaw(TILE_PX - 11, 18, PAL.steel4);
+    }
   }
 
   return buf.toCanvas();
@@ -221,12 +264,23 @@ function bakePlatformTiles(
 
 function bakeSupportBeam(pal: BiomeTilePalette): HTMLCanvasElement {
   const buf = new PixelBuffer(TILE_PX, TILE_PX, 1);
-  buf.rect(9, 0, 6, TILE_PX, pal.mortar);
-  buf.rect(10, 0, 4, TILE_PX, PAL.wood0);
-  buf.rect(11, 0, 2, TILE_PX, PAL.wood1);
-  buf.rect(9, 11, 6, 2, PAL.iron1);
-  buf.setRaw(11, 11, PAL.steel3);
-  buf.setRaw(12, 11, PAL.steel3);
+  // 10px-wide timber-and-iron X-braced stanchion (x=7..16)
+  buf.rect(7, 0, 10, TILE_PX, PAL.outline);
+  buf.rect(8, 0, 8, TILE_PX, PAL.obsidian0);
+  buf.rect(8, 0, 2, TILE_PX, PAL.wood2);
+  buf.rect(14, 0, 2, TILE_PX, PAL.wood1);
+  // Diagonal iron X-braces (upper & lower bays)
+  buf.line(9, 2, 14, 10, PAL.iron2, 1);
+  buf.line(14, 2, 9, 10, PAL.iron3, 1);
+  buf.line(9, 13, 14, 21, PAL.iron2, 1);
+  buf.line(14, 13, 9, 21, PAL.iron3, 1);
+  // Riveted iron collar bands
+  buf.rect(7, 0, 10, 2, PAL.iron2);
+  buf.rect(7, 11, 10, 2, PAL.iron2);
+  buf.setRaw(9, 0, pal.topHighlight);
+  buf.setRaw(14, 0, PAL.steel4);
+  buf.setRaw(9, 11, PAL.steel4);
+  buf.setRaw(14, 11, PAL.steel4);
   return buf.toCanvas();
 }
 
@@ -256,32 +310,36 @@ function bakeSpikesTile(): HTMLCanvasElement {
 function bakeTorchAnim(): SpriteAnimation {
   const bufs: PixelBuffer[] = [];
   for (let i = 0; i < 4; i++) {
-    const buf = new PixelBuffer(16, 24, PIXEL_SCALE);
-    // Iron wall sconce
-    buf.rect(7, 13, 2, 9, PAL.iron2);
-    buf.rect(5, 12, 6, 2, PAL.iron3);
-    buf.rect(6, 18, 4, 2, PAL.iron1);
+    const buf = new PixelBuffer(18, 26, PIXEL_SCALE);
+    // Wrought-iron wall sconce with angled bracket & ring
+    buf.rect(6, 13, 6, 2, PAL.iron2);
+    buf.rect(8, 15, 2, 9, PAL.iron2);
+    buf.line(4, 15, 8, 20, PAL.iron1, 1);
+    buf.line(13, 15, 9, 20, PAL.iron1, 1);
+    buf.rect(7, 21, 4, 3, PAL.iron3);
+    buf.applyOutline(PAL.outline);
 
-    // Animated flame tongue
+    // Dancing 4-shade flame + rising ember spark
     const sway = i === 1 ? -1 : i === 3 ? 1 : 0;
-    const tall = i % 2 === 0 ? 0 : 1;
+    const tall = i % 2 === 0 ? 0 : 2;
     buf.poly(
       [
-        [5, 12],
-        [8 + sway, 3 - tall],
-        [11, 12],
+        [6, 13],
+        [9 + sway, 3 - tall],
+        [12, 13],
       ],
       PAL.ember1,
     );
     buf.poly(
       [
-        [6, 12],
-        [8 + sway, 5 - tall],
-        [10, 12],
+        [7, 13],
+        [9 + sway, 6 - tall],
+        [11, 13],
       ],
       PAL.ember3,
     );
-    buf.rect(7, 9, 2, 3, PAL.ember5);
+    buf.rect(8, 10, 2, 3, PAL.ember5);
+    buf.set(9 + sway * 2, 2 - (i % 2), PAL.ember4);
     bufs.push(buf);
   }
   return bakeAnimation(bufs, 10, true);
@@ -290,40 +348,45 @@ function bakeTorchAnim(): SpriteAnimation {
 function bakeBrazierAnim(): SpriteAnimation {
   const bufs: PixelBuffer[] = [];
   for (let i = 0; i < 4; i++) {
-    const buf = new PixelBuffer(24, 28, PIXEL_SCALE);
-    // Tripod wrought-iron bowl
-    buf.line(6, 27, 9, 19, PAL.iron2, 2);
-    buf.line(18, 27, 15, 19, PAL.iron2, 2);
-    buf.rect(11, 20, 2, 7, PAL.iron1);
+    const buf = new PixelBuffer(26, 30, PIXEL_SCALE);
+    // Claw-footed riveted iron cauldron brazier with brass lion-ring rim
+    buf.line(6, 28, 9, 20, PAL.iron2, 2);
+    buf.line(20, 28, 17, 20, PAL.iron2, 2);
+    buf.rect(12, 21, 2, 7, PAL.iron1);
     buf.poly(
       [
         [4, 14],
-        [20, 14],
-        [17, 20],
-        [7, 20],
+        [22, 14],
+        [18, 21],
+        [8, 21],
       ],
       PAL.iron2,
     );
-    buf.rect(5, 14, 14, 2, PAL.gold2);
-    // Roaring coals & flames
+    buf.rect(5, 14, 16, 2, PAL.gold3);
+    buf.set(8, 17, PAL.steel4);
+    buf.set(17, 17, PAL.steel4);
+    buf.applyOutline(PAL.outline);
+
+    // Roaring coals & multi-tongued flames + spark
     const sway = i === 1 ? -2 : i === 3 ? 2 : 0;
     buf.poly(
       [
         [6, 14],
-        [12 + sway, 2 + (i % 2)],
-        [18, 14],
+        [13 + sway, 2 + (i % 2)],
+        [20, 14],
       ],
       PAL.ember1,
     );
     buf.poly(
       [
         [8, 14],
-        [12 + sway, 5 + (i % 2)],
-        [16, 14],
+        [13 + sway, 5 + (i % 2)],
+        [18, 14],
       ],
       PAL.ember3,
     );
-    buf.rect(10, 10, 4, 4, PAL.ember5);
+    buf.rect(11, 10, 4, 4, PAL.ember5);
+    buf.set(13 - sway, 1 + (i % 2), PAL.ember4);
     bufs.push(buf);
   }
   return bakeAnimation(bufs, 10, true);
@@ -332,21 +395,28 @@ function bakeBrazierAnim(): SpriteAnimation {
 function bakeBannerAnim(pal: BiomeTilePalette, primary: string, trim: string): SpriteAnimation {
   const bufs: PixelBuffer[] = [];
   for (let i = 0; i < 4; i++) {
-    const buf = new PixelBuffer(16, 36, PIXEL_SCALE);
+    const buf = new PixelBuffer(18, 38, PIXEL_SCALE);
     const wave = i === 1 ? 1 : i === 3 ? -1 : 0;
-    buf.rect(1, 1, 14, 2, PAL.gold3);
-    buf.rect(3, 3, 10, 24, primary);
-    buf.rect(4, 3, 2, 22, trim);
-    // Swallowtail bottom
+    // Brass spear-finial crossbar
+    buf.rect(1, 2, 16, 2, PAL.gold3);
+    buf.set(0, 2, PAL.gold4);
+    buf.set(17, 2, PAL.gold4);
+    buf.rect(4, 4, 10, 24, primary);
+    buf.rect(5, 4, 2, 22, trim);
+    buf.rect(12, 4, 1, 22, trim);
+    // Battle-torn swallowtail bottom + central crest
     buf.poly(
       [
-        [3, 27],
-        [8 + wave, 34],
-        [13, 27],
+        [4, 28],
+        [6 + wave, 35],
+        [9, 30],
+        [12 + wave, 35],
+        [14, 28],
       ],
       primary,
     );
-    buf.rect(6, 9, 4, 8, pal.topHighlight);
+    buf.rect(8, 9, 2, 10, pal.topHighlight);
+    buf.rect(6, 12, 6, 2, pal.topHighlight);
     buf.applyOutline(PAL.outline);
     bufs.push(buf);
   }
@@ -356,24 +426,29 @@ function bakeBannerAnim(pal: BiomeTilePalette, primary: string, trim: string): S
 function bakePortalAnim(): SpriteAnimation {
   const bufs: PixelBuffer[] = [];
   for (let i = 0; i < 6; i++) {
-    const buf = new PixelBuffer(36, 52, PIXEL_SCALE);
-    // Carved gothic stone archway
-    buf.ellipse(18, 28, 15, 22, PAL.stone1);
-    buf.rect(3, 28, 30, 24, PAL.stone1);
-    buf.ellipse(18, 28, 11, 18, PAL.void);
-    buf.rect(7, 28, 22, 24, PAL.void);
-    // Runes on arch
-    for (let a = 0; a < 5; a++) {
-      const angle = -Math.PI + (a / 4) * Math.PI;
-      const rx = 18 + Math.round(Math.cos(angle) * 13);
-      const ry = 28 + Math.round(Math.sin(angle) * 20);
+    const buf = new PixelBuffer(42, 56, PIXEL_SCALE);
+    // Stepped stone threshold & twin carved gothic columns
+    buf.rect(2, 52, 38, 3, PAL.stone2);
+    buf.rect(4, 28, 34, 24, PAL.stone1);
+    buf.ellipse(21, 28, 17, 23, PAL.stone1);
+    buf.rect(5, 28, 4, 24, PAL.stone3);
+    buf.rect(33, 28, 4, 24, PAL.stone3);
+    buf.ellipse(21, 28, 12, 19, PAL.void);
+    buf.rect(9, 28, 24, 24, PAL.void);
+    // Keystone skull crest & pulsing runes on arch
+    buf.rect(19, 5, 4, 5, PAL.gold3);
+    for (let a = 0; a < 7; a++) {
+      const angle = -Math.PI + (a / 6) * Math.PI;
+      const rx = 21 + Math.round(Math.cos(angle) * 14);
+      const ry = 28 + Math.round(Math.sin(angle) * 21);
       buf.set(rx, ry, i % 2 === a % 2 ? PAL.soul4 : PAL.soul2);
     }
-    // Swirling spectral vortex inside arch
+    // Multi-ring swirling spectral vortex + orbiting star-sparks
     const pulse = (i % 3) - 1;
-    buf.shadedEllipse(18, 30, 9 + pulse, 15 + pulse, PAL.soul0, PAL.soul2, PAL.soul4);
-    buf.ellipse(18, 30, 4, 8, PAL.soul5);
-    buf.set(18 + Math.round(Math.cos(i) * 6), 30 + Math.round(Math.sin(i) * 10), PAL.soul5);
+    buf.shadedEllipse(21, 31, 10 + pulse, 16 + pulse, PAL.soul0, PAL.soul2, PAL.soul4);
+    buf.ellipse(21, 31, 4, 9, PAL.soul5);
+    buf.set(21 + Math.round(Math.cos(i) * 7), 31 + Math.round(Math.sin(i) * 11), PAL.soul5);
+    buf.set(21 - Math.round(Math.cos(i) * 6), 31 - Math.round(Math.sin(i) * 9), PAL.gold4);
     buf.applyOutline(PAL.outline);
     bufs.push(buf);
   }
@@ -381,33 +456,97 @@ function bakePortalAnim(): SpriteAnimation {
 }
 
 function bakeRoseWindow(tintMain: string, tintAccent: string): HTMLCanvasElement {
-  const buf = new PixelBuffer(48, 64, PIXEL_SCALE);
-  // Pointed gothic lancet stone frame
-  buf.ellipse(24, 24, 20, 22, PAL.stone0);
-  buf.rect(4, 24, 40, 38, PAL.stone0);
-  buf.ellipse(24, 24, 16, 18, tintMain);
-  buf.rect(8, 24, 32, 36, tintMain);
-  // Stained glass lead mullions & colorful petals
-  buf.ellipse(24, 22, 11, 11, tintAccent);
-  buf.ellipse(24, 22, 5, 5, PAL.gold4);
-  buf.line(24, 6, 24, 60, PAL.outline, 2);
-  buf.line(8, 22, 40, 22, PAL.outline, 2);
-  buf.line(12, 10, 36, 34, PAL.outline, 1);
-  buf.line(36, 10, 12, 34, PAL.outline, 1);
-  // Bottom stone sill
-  buf.rect(2, 60, 44, 4, PAL.stone2);
+  const buf = new PixelBuffer(52, 68, PIXEL_SCALE);
+  // Pointed gothic arch stone frame with upper circular 8-petal rose medallion + twin lancets
+  buf.ellipse(26, 24, 22, 22, PAL.stone0);
+  buf.rect(4, 24, 44, 40, PAL.stone0);
+  buf.ellipse(26, 22, 18, 18, tintMain);
+  buf.rect(8, 24, 36, 38, tintMain);
+  // 8-petal upper rose medallion
+  buf.ellipse(26, 21, 13, 13, tintAccent);
+  buf.ellipse(26, 21, 6, 6, PAL.gold4);
+  buf.line(26, 5, 26, 62, PAL.outline, 2);
+  buf.line(8, 21, 44, 21, PAL.outline, 2);
+  buf.line(14, 9, 38, 33, PAL.outline, 1);
+  buf.line(38, 9, 14, 33, PAL.outline, 1);
+  // Lower twin lancet diamond mullions
+  buf.rect(14, 38, 8, 20, tintAccent);
+  buf.rect(30, 38, 8, 20, tintAccent);
+  buf.line(8, 46, 44, 46, PAL.outline, 1);
+  // Stepped stone window sill
+  buf.rect(2, 62, 48, 5, PAL.stone2);
+  buf.rect(2, 62, 48, 1, PAL.stone4);
+  buf.applyOutline(PAL.outline);
   return buf.toCanvas();
 }
 
 function bakePillar(pal: BiomeTilePalette): HTMLCanvasElement {
-  const buf = new PixelBuffer(20, 64, PIXEL_SCALE);
-  buf.rect(4, 0, 12, 64, pal.baseDark);
-  buf.rect(5, 0, 9, 64, pal.baseMid);
-  buf.rect(6, 0, 3, 64, pal.baseLight);
-  // Capital & base plinth
-  buf.rect(1, 0, 18, 6, pal.baseLight);
-  buf.rect(2, 58, 16, 6, pal.baseLight);
-  buf.rect(3, 5, 14, 2, pal.topTrim);
+  const buf = new PixelBuffer(24, 68, PIXEL_SCALE);
+  // 3-stepped octagonal plinth base & flared gothic capital
+  buf.rect(2, 62, 20, 5, pal.baseDark);
+  buf.rect(3, 57, 18, 5, pal.baseMid);
+  buf.rect(6, 6, 12, 52, pal.baseDark);
+  buf.rect(7, 6, 9, 52, pal.baseMid);
+  buf.rect(8, 6, 3, 52, pal.baseLight);
+  buf.rect(9, 6, 1, 52, pal.topHighlight);
+  // Carved mid-shaft stone collar ring
+  buf.rect(5, 31, 14, 4, pal.baseLight);
+  buf.rect(11, 32, 2, 2, pal.accent);
+  // Flared gothic capital
+  buf.rect(2, 1, 20, 5, pal.baseLight);
+  buf.rect(4, 6, 16, 2, pal.topTrim);
+  buf.applyOutline(PAL.outline);
+  return buf.toCanvas();
+}
+
+function bakeGothicStatue(pal: BiomeTilePalette): HTMLCanvasElement {
+  const buf = new PixelBuffer(26, 48, PIXEL_SCALE);
+  // Stepped carved stone pedestal
+  buf.rect(3, 41, 20, 6, pal.baseDark);
+  buf.rect(5, 36, 16, 5, pal.baseMid);
+  buf.rect(4, 35, 18, 2, pal.topTrim);
+  // Hooded gothic sentinel statue holding a downward-resting greatsword
+  buf.poly(
+    [
+      [6, 35],
+      [9, 14],
+      [17, 14],
+      [20, 35],
+    ],
+    pal.baseMid,
+  );
+  buf.rect(9, 15, 4, 19, pal.baseLight);
+  buf.shadedEllipse(13, 10, 5, 6, pal.baseDark, pal.baseMid, pal.baseLight);
+  buf.set(12, 10, pal.accent);
+  buf.set(14, 10, pal.accent);
+  // Resting greatsword down center
+  buf.rect(12, 16, 2, 19, PAL.steel3);
+  buf.rect(9, 19, 8, 2, PAL.gold3);
+  buf.applyTopRim(pal.topHighlight);
+  buf.applyOutline(PAL.outline);
+  return buf.toCanvas();
+}
+
+function bakeHeroPedestal(): HTMLCanvasElement {
+  const buf = new PixelBuffer(56, 42, PIXEL_SCALE);
+  // Grand Sanctuary Hall of Heroes Monument Dais
+  buf.rect(2, 36, 52, 5, PAL.stone1);
+  buf.rect(6, 31, 44, 5, PAL.stone2);
+  buf.rect(8, 31, 40, 1, PAL.gold3);
+  // Flanking short fluted columns with burning golden braziers
+  for (const cx of [7, 43]) {
+    buf.rect(cx, 15, 6, 16, PAL.stone3);
+    buf.rect(cx - 1, 13, 8, 3, PAL.gold3);
+    buf.poly([[cx, 13], [cx + 3, 5], [cx + 6, 13]], PAL.ember3);
+    buf.rect(cx + 2, 9, 2, 4, PAL.ember5);
+  }
+  // Central heraldic crest tablet
+  buf.rect(18, 17, 20, 14, PAL.stone1);
+  buf.rect(20, 19, 16, 10, PAL.obsidian2);
+  buf.rect(27, 20, 2, 8, PAL.gold4);
+  buf.rect(23, 23, 10, 2, PAL.gold3);
+  buf.applyTopRim(PAL.gold4);
+  buf.applyOutline(PAL.outline);
   return buf.toCanvas();
 }
 
@@ -429,116 +568,132 @@ function bakeProps(): Pick<
   | 'trainingDummy'
   | 'deedsLectern'
   | 'consecratedBanner'
+  | 'heroPedestal'
 > {
   // Chest closed
-  const cc = new PixelBuffer(22, 18, PIXEL_SCALE);
-  cc.rect(2, 5, 18, 12, PAL.wood1);
-  cc.rect(3, 6, 16, 10, PAL.wood2);
-  cc.rect(2, 4, 18, 3, PAL.gold2);
-  cc.rect(3, 5, 16, 1, PAL.gold4);
-  cc.rect(9, 7, 4, 5, PAL.gold3);
-  cc.set(11, 9, PAL.soul4);
+  const cc = new PixelBuffer(24, 20, PIXEL_SCALE);
+  cc.rect(2, 6, 20, 13, PAL.wood1);
+  cc.rect(3, 7, 18, 11, PAL.wood2);
+  cc.rect(2, 4, 20, 4, PAL.gold2);
+  cc.rect(3, 5, 18, 1, PAL.gold4);
+  cc.rect(10, 8, 4, 6, PAL.gold3);
+  cc.set(12, 10, PAL.soul4);
   cc.applyOutline(PAL.outline);
 
   // Chest open
-  const co = new PixelBuffer(22, 18, PIXEL_SCALE);
-  co.rect(2, 9, 18, 8, PAL.wood1);
-  co.rect(3, 2, 16, 6, PAL.wood2);
-  co.rect(2, 2, 18, 2, PAL.gold3);
-  co.rect(4, 8, 14, 3, PAL.gold4);
+  const co = new PixelBuffer(24, 20, PIXEL_SCALE);
+  co.rect(2, 10, 20, 9, PAL.wood1);
+  co.rect(3, 2, 18, 6, PAL.wood2);
+  co.rect(2, 2, 20, 2, PAL.gold3);
+  co.rect(4, 9, 16, 3, PAL.gold4);
   co.applyOutline(PAL.outline);
 
   // Barrel
-  const br = new PixelBuffer(16, 18, PIXEL_SCALE);
-  br.shadedEllipse(8, 10, 6, 7, PAL.wood0, PAL.wood2, PAL.wood3);
-  br.rect(2, 6, 12, 2, PAL.iron3);
-  br.rect(2, 12, 12, 2, PAL.iron3);
+  const br = new PixelBuffer(18, 20, PIXEL_SCALE);
+  br.shadedEllipse(9, 11, 7, 8, PAL.wood0, PAL.wood2, PAL.wood3);
+  br.rect(2, 7, 14, 2, PAL.iron3);
+  br.rect(2, 13, 14, 2, PAL.iron3);
   br.applyOutline(PAL.outline);
 
   // Crate
-  const cr = new PixelBuffer(16, 16, PIXEL_SCALE);
-  cr.rect(1, 1, 14, 14, PAL.wood1);
-  cr.rect(2, 2, 12, 12, PAL.wood3);
-  cr.line(2, 2, 13, 13, PAL.wood1, 2);
-  cr.rect(1, 1, 14, 2, PAL.wood4);
+  const cr = new PixelBuffer(18, 18, PIXEL_SCALE);
+  cr.rect(1, 1, 16, 16, PAL.wood1);
+  cr.rect(2, 2, 14, 14, PAL.wood3);
+  cr.line(2, 2, 15, 15, PAL.wood1, 2);
+  cr.rect(1, 1, 16, 2, PAL.wood4);
   cr.applyOutline(PAL.outline);
 
-  // Soul Altar (Sanctuary centerpiece)
-  const sa = new PixelBuffer(40, 48, PIXEL_SCALE);
-  sa.rect(4, 40, 32, 7, PAL.stone1);
-  sa.rect(7, 34, 26, 6, PAL.stone2);
-  sa.rect(12, 18, 16, 16, PAL.stone1);
-  sa.rect(14, 16, 12, 3, PAL.gold3);
-  // Levitating Soul Vessel crystal
+  // Soul Altar (Sanctuary centerpiece: tiered altar + embroidered cloth + candles + faceted Soul Prism Totem)
+  const sa = new PixelBuffer(44, 54, PIXEL_SCALE);
+  sa.rect(3, 46, 38, 7, PAL.stone1);
+  sa.rect(6, 40, 32, 6, PAL.stone2);
+  sa.rect(11, 22, 22, 18, PAL.stone1);
+  sa.rect(13, 22, 18, 3, PAL.gold3);
+  // Crimson-gold embroidered cloth + skull relief
+  sa.rect(17, 25, 10, 13, PAL.crimson1);
+  sa.rect(19, 25, 6, 11, PAL.crimson2);
+  sa.rect(20, 28, 4, 4, PAL.bone3);
+  // Twin side brass candlesticks with cyan flames
+  for (const cx of [10, 34]) {
+    sa.rect(cx - 1, 18, 2, 5, PAL.gold3);
+    sa.set(cx, 15, PAL.soul4);
+    sa.set(cx, 16, PAL.soul5);
+  }
+  // Faceted levitating Soul Prism Totem + flanking crystal shards
   sa.poly(
     [
-      [20, 3],
-      [26, 10],
-      [20, 17],
-      [14, 10],
+      [22, 2],
+      [29, 11],
+      [22, 20],
+      [15, 11],
     ],
     PAL.soul3,
   );
   sa.poly(
     [
-      [20, 5],
-      [23, 10],
-      [20, 15],
-      [17, 10],
+      [22, 5],
+      [25, 11],
+      [22, 17],
+      [19, 11],
     ],
     PAL.soul5,
   );
+  sa.set(13, 10, PAL.soul4);
+  sa.set(31, 10, PAL.soul4);
+  sa.applyTopRim(PAL.soul5);
   sa.applyOutline(PAL.outline);
 
-  // Relic Shrine
-  const rs = new PixelBuffer(26, 34, PIXEL_SCALE);
-  rs.rect(4, 28, 18, 5, PAL.stone2);
-  rs.rect(8, 14, 10, 14, PAL.stone1);
-  rs.rect(6, 12, 14, 3, PAL.gold3);
-  rs.shadedEllipse(13, 7, 4, 5, PAL.soul1, PAL.soul3, PAL.soul5);
+  // Relic Shrine (Winged Seraph Statue Totem holding radiant chalice orb)
+  const rs = new PixelBuffer(32, 44, PIXEL_SCALE);
+  rs.rect(5, 37, 22, 6, PAL.stone2);
+  rs.rect(9, 22, 14, 15, PAL.stone1);
+  rs.rect(7, 20, 18, 3, PAL.gold3);
+  // Spread stone wings
+  rs.poly([[12, 20], [3, 9], [6, 20]], PAL.stone3);
+  rs.poly([[20, 20], [29, 9], [26, 20]], PAL.stone3);
+  rs.shadedEllipse(16, 15, 4, 5, PAL.stone0, PAL.stone2, PAL.stone4);
+  // Radiant golden reliquary orb
+  rs.shadedEllipse(16, 7, 5, 5, PAL.gold2, PAL.gold4, PAL.soul5);
+  rs.applyTopRim(PAL.gold5);
   rs.applyOutline(PAL.outline);
 
-  // Merchant Hooded Peddler Stand
-  const ms = new PixelBuffer(34, 36, PIXEL_SCALE);
-  ms.rect(2, 24, 30, 11, PAL.wood1);
-  ms.rect(3, 24, 28, 3, PAL.gold3);
-  ms.rect(5, 21, 5, 3, PAL.crimson3); // potion
-  ms.rect(13, 21, 6, 3, PAL.gold4); // gold/relic
-  // Cloaked merchant silhouette behind counter
-  ms.poly(
-    [
-      [11, 24],
-      [17, 7],
-      [25, 24],
-    ],
-    PAL.violet1,
-  );
-  ms.shadedEllipse(18, 11, 4, 4, PAL.obsidian0, PAL.violet2, PAL.violet3);
-  ms.set(17, 11, PAL.gold4);
-  ms.set(19, 11, PAL.gold4);
+  // Merchant Hooded Peddler Stand (timber booth + slanted awning + hanging lantern + wares)
+  const ms = new PixelBuffer(38, 42, PIXEL_SCALE);
+  ms.rect(3, 28, 32, 13, PAL.wood1);
+  ms.rect(4, 28, 30, 3, PAL.gold3);
+  ms.rect(5, 12, 2, 16, PAL.wood2);
+  ms.rect(31, 12, 2, 16, PAL.wood2);
+  // Slanted striped awning
+  ms.poly([[2, 12], [36, 10], [36, 15], [2, 16]], PAL.crimson1);
+  ms.rect(8, 12, 4, 4, PAL.gold3);
+  ms.rect(20, 11, 4, 4, PAL.gold3);
+  // Hanging lantern + potions
+  ms.rect(6, 16, 1, 3, PAL.iron3);
+  ms.rect(5, 19, 3, 4, PAL.ember4);
+  ms.rect(6, 25, 5, 3, PAL.crimson3);
+  ms.rect(14, 25, 6, 3, PAL.gold4);
+  // Cloaked merchant behind counter
+  ms.poly([[13, 28], [19, 14], [27, 28]], PAL.violet1);
+  ms.shadedEllipse(20, 18, 4, 4, PAL.obsidian0, PAL.violet2, PAL.violet3);
+  ms.set(19, 18, PAL.gold4);
+  ms.set(21, 18, PAL.gold4);
   ms.applyOutline(PAL.outline);
 
-  // Curse Brazier
-  const cb = new PixelBuffer(26, 32, PIXEL_SCALE);
-  cb.rect(5, 26, 16, 5, PAL.obsidian1);
-  cb.poly(
-    [
-      [4, 16],
-      [22, 16],
-      [18, 26],
-      [8, 26],
-    ],
-    PAL.iron2,
-  );
-  cb.poly(
-    [
-      [8, 16],
-      [13, 4],
-      [18, 16],
-    ],
-    PAL.crimson3,
-  );
-  cb.rect(11, 10, 4, 5, PAL.ember4);
+  // Curse Brazier (Cursed Skull Totem Tripod erupting with violet/crimson flames)
+  const cb = new PixelBuffer(30, 40, PIXEL_SCALE);
+  cb.line(6, 38, 10, 27, PAL.iron2, 2);
+  cb.line(24, 38, 20, 27, PAL.iron2, 2);
+  cb.rect(14, 28, 2, 10, PAL.iron1);
+  cb.poly([[4, 18], [26, 18], [21, 28], [9, 28]], PAL.iron2);
+  // Ring of horned bone skulls
+  for (const sx of [8, 15, 22]) {
+    cb.shadedEllipse(sx, 18, 3, 3, PAL.bone1, PAL.bone3, PAL.bone4);
+    cb.set(sx - 1, 18, PAL.crimson4);
+    cb.set(sx + 1, 18, PAL.crimson4);
+  }
+  cb.poly([[9, 16], [15, 3], [21, 16]], PAL.violet3);
+  cb.poly([[11, 16], [15, 7], [19, 16]], PAL.crimson4);
+  cb.rect(14, 11, 2, 4, PAL.ember4);
   cb.applyOutline(PAL.outline);
 
   // Hanging Chain
@@ -549,111 +704,95 @@ function bakeProps(): Pick<
     ch.rect(2, y, 4, 1, PAL.steel4);
   }
 
-  // Trinity Scroll Pedestal (glowing floating scroll above stone lectern)
-  const ts = new PixelBuffer(26, 36, PIXEL_SCALE);
-  ts.rect(5, 30, 16, 5, PAL.stone2);
-  ts.rect(9, 17, 8, 13, PAL.stone1);
-  ts.rect(7, 15, 12, 3, PAL.gold3);
-  ts.rect(7, 5, 12, 8, PAL.bone4);
-  ts.rect(6, 5, 2, 8, PAL.crimson3); // Brutality seal
-  ts.rect(18, 5, 2, 8, PAL.violet3); // Tactics seal
-  ts.rect(11, 7, 4, 4, PAL.venom3); // Survival center seal
+  // Trinity Scroll Pedestal (Winged Marble Reliquary Totem + levitating glowing scroll)
+  const ts = new PixelBuffer(30, 42, PIXEL_SCALE);
+  ts.rect(5, 35, 20, 6, PAL.stone2);
+  ts.rect(10, 20, 10, 15, PAL.stone1);
+  ts.rect(12, 22, 6, 11, PAL.crimson2);
+  ts.rect(7, 18, 16, 3, PAL.gold3);
+  // Brass wing cradle
+  ts.poly([[9, 18], [4, 11], [8, 17]], PAL.gold4);
+  ts.poly([[21, 18], [26, 11], [22, 17]], PAL.gold4);
+  // Levitating parchment scroll with Trinity runes
+  ts.rect(8, 5, 14, 10, PAL.bone4);
+  ts.rect(7, 5, 2, 10, PAL.crimson3);
+  ts.rect(21, 5, 2, 10, PAL.violet3);
+  ts.rect(13, 8, 4, 4, PAL.venom3);
   ts.applyOutline(PAL.outline);
 
-  // Blood Shrine (horned crimson chalice altar)
-  const bs = new PixelBuffer(28, 34, PIXEL_SCALE);
-  bs.rect(5, 28, 18, 5, PAL.obsidian1);
-  bs.rect(9, 16, 10, 12, PAL.crimson0);
-  bs.poly(
-    [
-      [7, 8],
-      [21, 8],
-      [18, 16],
-      [10, 16],
-    ],
-    PAL.gold2,
-  );
-  bs.rect(9, 7, 10, 2, PAL.crimson4);
-  bs.set(14, 5, PAL.crimson5);
+  // Blood Shrine (Horned Gargoyle Idol Totem holding brimming blood chalice)
+  const bs = new PixelBuffer(32, 42, PIXEL_SCALE);
+  bs.rect(5, 35, 22, 6, PAL.obsidian1);
+  bs.rect(10, 20, 12, 15, PAL.obsidian2);
+  bs.shadedEllipse(16, 25, 5, 5, PAL.obsidian0, PAL.obsidian2, PAL.stone3);
+  bs.line(12, 22, 8, 17, PAL.bone3, 2);
+  bs.line(20, 22, 24, 17, PAL.bone3, 2);
+  bs.set(14, 24, PAL.crimson4);
+  bs.set(18, 24, PAL.crimson4);
+  bs.poly([[6, 9], [26, 9], [21, 18], [11, 18]], PAL.gold2);
+  bs.rect(8, 8, 16, 3, PAL.crimson4);
+  bs.line(12, 11, 12, 16, PAL.crimson3, 1);
+  bs.line(20, 11, 20, 15, PAL.crimson3, 1);
+  bs.set(16, 6, PAL.crimson5);
   bs.applyOutline(PAL.outline);
 
-  // Waystone Fast-Travel Obelisk (4f)
+  // Waystone Fast-Travel Obelisk (Split-Crown Runic Obelisk Totem, 4f)
   const wsBufs: PixelBuffer[] = [];
   for (let i = 0; i < 4; i++) {
-    const wb = new PixelBuffer(22, 38, PIXEL_SCALE);
-    wb.rect(4, 32, 14, 5, PAL.stone2);
-    wb.poly(
-      [
-        [6, 32],
-        [7, 10],
-        [11, 4],
-        [15, 10],
-        [16, 32],
-      ],
-      PAL.stone1,
-    );
+    const wb = new PixelBuffer(26, 46, PIXEL_SCALE);
+    wb.rect(4, 39, 18, 6, PAL.stone2);
+    wb.rect(6, 35, 14, 4, PAL.moss1);
+    wb.poly([[7, 35], [8, 14], [11, 6], [11, 14], [15, 14], [15, 6], [18, 14], [19, 35]], PAL.stone1);
     const glow = i % 2 === 0 ? PAL.soul4 : PAL.soul5;
-    wb.rect(10, 12, 2, 16, PAL.soul2);
-    wb.rect(10, 13 + i * 2, 2, 4, glow);
-    wb.set(11, 8, glow);
+    wb.rect(12, 16, 2, 16, PAL.soul2);
+    wb.rect(12, 17 + i * 2, 2, 4, glow);
+    // Levitating pulsing diamond Soul Core between split horns
+    wb.poly([[13, 3], [16, 7], [13, 11], [10, 7]], glow);
+    wb.set(8 + (i % 2) * 10, 9 - (i % 3), PAL.soul5);
     wb.applyOutline(PAL.outline);
     wsBufs.push(wb);
   }
 
-  // Carved Lore Tablet
-  const lt = new PixelBuffer(18, 24, PIXEL_SCALE);
-  lt.rect(3, 19, 12, 4, PAL.stone2);
-  lt.ellipse(9, 10, 6, 8, PAL.stone1);
-  lt.rect(3, 10, 12, 10, PAL.stone1);
-  lt.rect(6, 7, 6, 1, PAL.soul3);
-  lt.rect(6, 10, 6, 1, PAL.stone4);
-  lt.rect(6, 13, 5, 1, PAL.stone4);
+  // Carved Arched Runestone Lore Stele
+  const lt = new PixelBuffer(22, 30, PIXEL_SCALE);
+  lt.rect(3, 24, 16, 5, PAL.stone2);
+  lt.ellipse(11, 11, 7, 9, PAL.stone1);
+  lt.rect(4, 11, 14, 13, PAL.stone1);
+  lt.rect(6, 22, 4, 2, PAL.moss2);
+  lt.rect(7, 8, 8, 1, PAL.soul3);
+  lt.rect(7, 12, 8, 1, PAL.stone4);
+  lt.rect(7, 16, 6, 1, PAL.stone4);
   lt.applyOutline(PAL.outline);
 
-  // Sanctuary Combat Training Dummy
-  const td = new PixelBuffer(26, 38, PIXEL_SCALE);
-  td.rect(11, 20, 4, 17, PAL.wood2);
-  td.rect(6, 34, 14, 3, PAL.wood1);
-  td.rect(5, 12, 16, 3, PAL.wood3); // crossbar arms
-  td.rect(8, 11, 10, 12, PAL.steel1); // iron practice cuirass
-  td.rect(9, 12, 8, 9, PAL.steel3);
-  td.shadedEllipse(13, 7, 4, 4, PAL.bone1, PAL.bone2, PAL.bone4);
-  td.rect(11, 6, 4, 2, PAL.crimson3); // target bullseye
+  // Sanctuary Combat Training Dummy (Armored knight dummy + target shield)
+  const td = new PixelBuffer(28, 40, PIXEL_SCALE);
+  td.rect(12, 21, 4, 18, PAL.wood2);
+  td.rect(6, 36, 16, 3, PAL.wood1);
+  td.rect(5, 13, 18, 3, PAL.wood3);
+  td.rect(9, 12, 10, 12, PAL.steel1);
+  td.rect(10, 13, 8, 9, PAL.steel3);
+  td.shadedEllipse(14, 7, 4, 4, PAL.bone1, PAL.bone2, PAL.bone4);
+  td.rect(12, 6, 4, 2, PAL.crimson3);
+  td.shadedEllipse(21, 17, 3, 4, PAL.wood1, PAL.wood3, PAL.gold3);
   td.applyOutline(PAL.outline);
 
-  // Sanctuary Book of Deeds Lectern
-  const dl = new PixelBuffer(24, 34, PIXEL_SCALE);
-  dl.rect(6, 28, 12, 5, PAL.wood1);
-  dl.rect(10, 15, 4, 13, PAL.wood2);
-  dl.poly(
-    [
-      [4, 12],
-      [20, 9],
-      [20, 16],
-      [4, 17],
-    ],
-    PAL.gold3,
-  );
-  dl.rect(6, 11, 12, 4, PAL.bone4);
-  dl.set(11, 12, PAL.crimson3);
+  // Sanctuary Book of Deeds Lectern (Gilded lectern + open illuminated tome)
+  const dl = new PixelBuffer(26, 36, PIXEL_SCALE);
+  dl.rect(6, 30, 14, 5, PAL.wood1);
+  dl.rect(11, 16, 4, 14, PAL.wood2);
+  dl.poly([[4, 13], [22, 9], [22, 17], [4, 19]], PAL.gold3);
+  dl.rect(6, 12, 14, 5, PAL.bone4);
+  dl.rect(12, 17, 2, 5, PAL.crimson3);
   dl.applyOutline(PAL.outline);
 
-  // Seraphina's Consecrated Golden War-Banner
-  const cbTotem = new PixelBuffer(20, 40, PIXEL_SCALE);
-  cbTotem.rect(9, 4, 2, 35, PAL.gold3);
-  cbTotem.rect(4, 7, 12, 2, PAL.gold4);
-  cbTotem.poly(
-    [
-      [5, 9],
-      [15, 9],
-      [15, 25],
-      [10, 31],
-      [5, 25],
-    ],
-    PAL.bone4,
-  );
-  cbTotem.rect(9, 11, 2, 13, PAL.gold3);
-  cbTotem.rect(7, 15, 6, 2, PAL.gold3);
+  // Seraphina's Consecrated Golden Sun-Halberd Totem
+  const cbTotem = new PixelBuffer(24, 44, PIXEL_SCALE);
+  cbTotem.rect(11, 4, 2, 39, PAL.gold3);
+  cbTotem.rect(5, 8, 14, 2, PAL.gold4);
+  cbTotem.set(12, 2, PAL.gold5);
+  cbTotem.poly([[6, 10], [18, 10], [18, 28], [12, 34], [6, 28]], PAL.bone4);
+  cbTotem.rect(11, 13, 2, 14, PAL.gold3);
+  cbTotem.rect(8, 17, 8, 2, PAL.gold3);
   cbTotem.applyOutline(PAL.outline);
 
   return {
@@ -673,6 +812,7 @@ function bakeProps(): Pick<
     trainingDummy: td.toCanvas(),
     deedsLectern: dl.toCanvas(),
     consecratedBanner: cbTotem.toCanvas(),
+    heroPedestal: bakeHeroPedestal(),
   };
 }
 
@@ -767,6 +907,7 @@ export function bakeTilesetAssets(): TilesetAssets {
   const bannerAnim = {} as Record<BiomeId, SpriteAnimation>;
   const roseWindow = {} as Record<BiomeId, HTMLCanvasElement>;
   const pillar = {} as Record<BiomeId, HTMLCanvasElement>;
+  const statue = {} as Record<BiomeId, HTMLCanvasElement>;
   const floorClutter = {} as Record<
     BiomeId,
     [HTMLCanvasElement, HTMLCanvasElement, HTMLCanvasElement]
@@ -786,6 +927,7 @@ export function bakeTilesetAssets(): TilesetAssets {
     platformTiles[b] = bakePlatformTiles(pal);
     supportBeam[b] = bakeSupportBeam(pal);
     pillar[b] = bakePillar(pal);
+    statue[b] = bakeGothicStatue(pal);
     floorClutter[b] = bakeFloorClutter(b);
 
     if (b === 'sanctuary') {
@@ -817,6 +959,7 @@ export function bakeTilesetAssets(): TilesetAssets {
     portalAnim: bakePortalAnim(),
     roseWindow,
     pillar,
+    statue,
     floorClutter,
     ...bakeProps(),
   };

@@ -449,6 +449,25 @@ export function generateDungeon(
 
   tileMap.computeMasks();
 
+  // Deterministic architectural pillars & gothic statues along open floor bays
+  for (let tx = 8; tx < tileMap.width - 8; tx += 10) {
+    if (
+      tileMap.isSolid(tx, DOOR_FLOOR_ROW) &&
+      tileMap.getTile(tx, DOOR_FLOOR_ROW - 1) === 0 &&
+      tileMap.getTile(tx, DOOR_FLOOR_ROW - 2) === 0 &&
+      tileMap.getTile(tx, DOOR_FLOOR_ROW - 3) === 0
+    ) {
+      const wx = tx * TILE_SIZE + TILE_SIZE * 0.5;
+      if (interactives.some((st) => Math.abs(st.x - wx) < 26)) continue;
+      props.push({
+        kind: (tx / 10) % 2 === 0 ? 'pillar' : 'statue',
+        x: wx,
+        y: DOOR_FLOOR_ROW * TILE_SIZE,
+        variant: tx % 3,
+      });
+    }
+  }
+
   return {
     biome: biomeId,
     seed,

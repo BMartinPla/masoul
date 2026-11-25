@@ -308,7 +308,7 @@ export class MasoulGame {
         st.activated = true;
         this.sound.playSoulPickup();
         this.particles.spawnSoulWisps(st.x, st.y - 20, 8);
-        this.showBanner('WAYSTONE ATTUNED [TAB TO WARP]');
+        this.showBanner(tr('WAYSTONE ATTUNED [TAB TO WARP]', 'PIEDRA GUIA SINTONIZADA [TAB PARA VIAJAR]'));
       }
     }
 
@@ -1141,7 +1141,7 @@ export class MasoulGame {
     this.screen = 'sanctuary';
     this.input.setGameplayEnabled(true);
     this.overlay.renderScreen('sanctuary');
-    this.showBanner('THE PALE SANCTUARY');
+    this.showBanner(tr('THE PALE SANCTUARY', 'EL SANTUARIO PALIDO'));
   }
 
   private startNewRun(): void {
@@ -1198,7 +1198,8 @@ export class MasoulGame {
     this.level = generateDungeon(biomeId, seed, this.runStats.curseTier);
     this.applyLoadedLevel(false);
     this.player.onEnterNewRoom();
-    this.showBanner(`${BIOMES[biomeId].name.toUpperCase()} - ${BIOMES[biomeId].subtitle.toUpperCase()}`);
+    const locB = locBiome(BIOMES[biomeId]);
+    this.showBanner(`${locB.name.toUpperCase()} - ${locB.subtitle.toUpperCase()}`);
   }
 
   private applyLoadedLevel(isSanctuary: boolean): void {
@@ -1373,6 +1374,10 @@ export class MasoulGame {
       } else if (p.kind === 'brazier') {
         const frame = getAnimationFrame(ts.brazierAnim, this.worldTime, 1);
         drawBottomCenter(frame, px, py);
+      } else if (p.kind === 'pillar') {
+        drawBottomCenter(ts.pillar[biomeId], px, py);
+      } else if (p.kind === 'statue') {
+        drawBottomCenter(ts.statue[biomeId], px, py);
       }
     }
 
@@ -1481,7 +1486,8 @@ export class MasoulGame {
 
       if (st.kind === 'soul_altar') drawBottomCenter(ts.soulAltar, sx, sy);
       else if (st.kind === 'hero_pedestal') {
-        drawPixelText(ctx, 'HALL OF HEROES', sx, sy - 80, {
+        drawBottomCenter(ts.heroPedestal, sx, sy);
+        drawPixelText(ctx, tr('HALL OF HEROES', 'SALON DE HEROES'), sx, sy - 92, {
           color: '#ffe082',
           align: 'center',
           variant: 'gothic',
