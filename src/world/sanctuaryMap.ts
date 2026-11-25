@@ -63,10 +63,10 @@ export function generateSanctuary(): GeneratedDungeon {
   }
 
   // Decorative gothic pillars & statues along Sanctuary hall
-  for (const px of [6, 16, 24, 31, 39, 47]) {
+  for (const px of [6, 20.5, 33.8, 47.5]) {
     props.push({ kind: 'pillar', x: px * TILE_SIZE, y: floorY, variant: 0 });
   }
-  for (const sx of [10.5, 46]) {
+  for (const sx of [16.2, 44.8]) {
     props.push({ kind: 'statue', x: sx * TILE_SIZE, y: floorY, variant: 0 });
   }
 
@@ -79,8 +79,8 @@ export function generateSanctuary(): GeneratedDungeon {
   interactives.push({ kind: 'hero_pedestal', x: 27 * TILE_SIZE, y: floorY, id: 'Hall of Heroes [F]' });
   lights.push({ x: 27 * TILE_SIZE, y: floorY - 22, radius: 100, color: '#ffe082', intensity: 0.9, flicker: 0.05 });
 
-  interactives.push({ kind: 'deeds_lectern', x: 35 * TILE_SIZE, y: floorY, id: 'Book of Deeds [F]' });
-  lights.push({ x: 35 * TILE_SIZE, y: floorY - 18, radius: 75, color: '#ffe082', intensity: 0.85, flicker: 0.04 });
+  interactives.push({ kind: 'deeds_lectern', x: 36.5 * TILE_SIZE, y: floorY, id: 'Book of Deeds [F]' });
+  lights.push({ x: 36.5 * TILE_SIZE, y: floorY - 18, radius: 75, color: '#ffe082', intensity: 0.85, flicker: 0.04 });
 
   interactives.push({ kind: 'curse_brazier', x: 42 * TILE_SIZE, y: floorY, id: 'Curse Brazier [F]' });
   lights.push({ x: 42 * TILE_SIZE, y: floorY - 20, radius: 85, color: '#ff6b7a', intensity: 0.85, flicker: 0.1 });

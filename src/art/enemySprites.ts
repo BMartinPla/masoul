@@ -109,11 +109,12 @@ function drawSkeleton(buf: PixelBuffer, m: EnemySpriteMetrics, pose: EnemyPose):
   buf.set(bx + 3, shY - 5, pose.state === 'telegraph' ? PAL.ember4 : PAL.soul4);
   buf.set(bx + 1, shY - 5, pose.state === 'telegraph' ? PAL.ember4 : PAL.soul4);
 
-  // Offhand iron buckler shield
-  buf.shadedEllipse(bx - 4, shY + 3, 3, 4, PAL.steel1, PAL.steel2, PAL.steel4);
-  buf.set(bx - 4, shY + 3, PAL.gold3);
+  // Front-guard iron buckler shield on off-hand forearm
+  buf.line(bx + 1, shY + 2, bx + 4, shY + 4, PAL.bone2, 2);
+  buf.shadedEllipse(bx + 4, shY + 4, 3, 4, PAL.steel1, PAL.steel2, PAL.steel4);
+  buf.set(bx + 4, shY + 4, PAL.gold3);
 
-  // Arm + notched sword with crossguard & pommel
+  // Arm + notched sword with crossguard, pommel & bony hand grip
   const ang =
     pose.state === 'telegraph' ? -2.2 : pose.state === 'attack' ? 0.35 - p * 0.4 : -0.5;
   const hx = bx + 3 + Math.round(Math.cos(ang) * 4);
@@ -127,6 +128,7 @@ function drawSkeleton(buf: PixelBuffer, m: EnemySpriteMetrics, pose: EnemyPose):
   const gyOff = Math.round(Math.cos(ang) * 3);
   buf.line(hx - gx, hy - gyOff, hx + gx, hy + gyOff, PAL.gold3, 2);
   buf.set(hx - Math.round(Math.cos(ang) * 2), hy - Math.round(Math.sin(ang) * 2), PAL.gold4);
+  buf.rect(hx - 1, hy - 1, 2, 2, PAL.bone4);
 
   buf.applyOutline(PAL.outline);
   if (pose.state === 'attack' && pose.frame >= 1 && pose.frame <= 2) {
@@ -169,23 +171,27 @@ function drawCrossbowman(buf: PixelBuffer, m: EnemySpriteMetrics, pose: EnemyPos
   buf.rect(cx, shY - 6, 4, 4, PAL.bone3);
   buf.set(cx + 2, shY - 5, pose.state === 'telegraph' ? PAL.crimson4 : PAL.ember4);
 
-  // Crossbow held forward
+  // Crossbow seated against shoulder with both articulated arms & angled 3/4 prod
   const aimY = shY + 3;
-  const aimX = cx + 4;
-  buf.rect(aimX, aimY, 10, 2, PAL.wood3);
-  buf.line(aimX + 8, aimY - 4, aimX + 8, aimY + 5, PAL.steel3, 2); // prod
-  buf.line(aimX + 2, aimY + 1, aimX + 8, aimY - 4, PAL.steel4);
-  buf.line(aimX + 2, aimY + 1, aimX + 8, aimY + 5, PAL.steel4);
+  const stockX = cx + 1;
+  buf.drawArticulatedLimb(cx - 1, shY + 2, cx + 3, aimY + 2, 2, PAL.bone1, PAL.bone3);
+  buf.rect(stockX, aimY, 11, 2, PAL.wood3);
+  buf.drawArticulatedLimb(cx + 2, shY + 2, cx + 7, aimY + 2, 2, PAL.bone2, PAL.bone4);
+  buf.rect(cx + 6, aimY + 1, 2, 2, PAL.bone4);
+  buf.line(cx + 11, aimY - 3, cx + 9, aimY + 1, PAL.steel3, 2);
+  buf.line(cx + 11, aimY + 4, cx + 9, aimY + 1, PAL.steel3, 2);
+  buf.line(cx + 4, aimY + 1, cx + 11, aimY - 3, PAL.steel4);
+  buf.line(cx + 4, aimY + 1, cx + 11, aimY + 4, PAL.steel4);
 
   if (pose.state === 'telegraph') {
-    // Glowing notched bolt
-    buf.line(aimX + 4, aimY + 1, aimX + 13, aimY + 1, PAL.ember4, 2);
-    buf.set(aimX + 14, aimY + 1, PAL.ember5);
+    // Glowing notched bolt with sharp steel tip
+    buf.line(cx + 5, aimY + 1, cx + 13, aimY + 1, PAL.ember4, 2);
+    buf.set(cx + 14, aimY + 1, PAL.steel5);
   }
 
   buf.applyOutline(PAL.outline);
   if (pose.state === 'attack' && pose.frame === 1) {
-    buf.line(aimX + 10, aimY + 1, aimX + 20, aimY + 1, PAL.ember4, 2);
+    buf.line(cx + 12, aimY + 1, cx + 21, aimY + 1, PAL.ember4, 2);
   }
 }
 
@@ -350,13 +356,26 @@ function drawDarkKnight(buf: PixelBuffer, m: EnemySpriteMetrics, pose: EnemyPose
   buf.rect(bx + 2, shY - 6, 4, 2, PAL.outline);
   buf.set(bx + 4, shY - 6, pose.state === 'telegraph' ? PAL.ember5 : PAL.crimson4);
 
-  // Halberd
+  const drawShield = () => {
+    const shieldX = bx + (pose.state === 'attack' ? -3 : 6);
+    const shieldY = shY + 5;
+    buf.rect(shieldX - 3, shieldY - 7, 6, 15, PAL.iron1);
+    buf.rect(shieldX - 2, shieldY - 6, 4, 13, PAL.iron3);
+    buf.rect(shieldX - 1, shieldY - 4, 2, 9, PAL.gold3);
+  };
+
+  if (pose.state === 'attack') {
+    drawShield();
+  }
+
+  // Articulated armored weapon arm + halberd
   const ang = pose.state === 'telegraph' ? -2.1 : pose.state === 'attack' ? 0.25 : -1.1;
-  const sx = bx - 2;
-  const sy = shY + 2;
-  const tx = sx + Math.round(Math.cos(ang) * 20);
-  const ty = sy + Math.round(Math.sin(ang) * 20);
-  buf.line(sx - Math.cos(ang) * 5, sy - Math.sin(ang) * 5, tx, ty, PAL.wood2, 2);
+  const hx = bx + 3 + Math.round(Math.cos(ang) * 4);
+  const hy = shY + 3 + Math.round(Math.sin(ang) * 4);
+  buf.drawArticulatedLimb(bx + 1, shY + 2, hx, hy, 3, PAL.iron1, PAL.iron3);
+  const tx = hx + Math.round(Math.cos(ang) * 18);
+  const ty = hy + Math.round(Math.sin(ang) * 18);
+  buf.line(hx - Math.cos(ang) * 6, hy - Math.sin(ang) * 6, tx, ty, PAL.wood2, 2);
   buf.poly(
     [
       [tx, ty],
@@ -365,13 +384,11 @@ function drawDarkKnight(buf: PixelBuffer, m: EnemySpriteMetrics, pose: EnemyPose
     ],
     PAL.steel4,
   );
+  buf.rect(hx - 1, hy - 1, 2, 2, PAL.iron4);
 
-  // Tower Shield held forward
-  const shieldX = bx + (pose.state === 'attack' ? 3 : 7);
-  const shieldY = shY + 5;
-  buf.rect(shieldX - 3, shieldY - 7, 6, 15, PAL.iron1);
-  buf.rect(shieldX - 2, shieldY - 6, 4, 13, PAL.iron3);
-  buf.rect(shieldX - 1, shieldY - 4, 2, 9, PAL.gold3);
+  if (pose.state !== 'attack') {
+    drawShield();
+  }
 
   buf.applyOutline(PAL.outline);
   if (pose.state === 'attack' && (pose.frame === 1 || pose.frame === 2)) {
@@ -479,13 +496,16 @@ function drawBrute(buf: PixelBuffer, m: EnemySpriteMetrics, pose: EnemyPose): vo
   buf.line(bx + 5, shY - 7, bx + 10, shY - 12, PAL.bone3, 2);
   buf.set(bx + 4, shY - 5, pose.state === 'telegraph' ? PAL.ember5 : PAL.crimson4);
 
-  // Colossal spiked iron mace
+  // Heavy muscular off-hand & front weapon arm gripping colossal spiked iron mace
+  buf.drawArticulatedLimb(bx - 6, shY + 3, bx - 8, shY + 12, 3, PAL.skin0, PAL.skin1);
   const ang = pose.state === 'telegraph' ? -2.3 : pose.state === 'attack' ? 0.55 : -0.8;
-  const sx = bx + 6;
-  const sy = shY + 3;
-  const hx = sx + Math.round(Math.cos(ang) * 16);
-  const hy = sy + Math.round(Math.sin(ang) * 16);
-  buf.line(sx, sy, hx, hy, PAL.wood2, 3);
+  const fx = bx + 6 + Math.round(Math.cos(ang) * 6);
+  const fy = shY + 4 + Math.round(Math.sin(ang) * 6);
+  buf.drawArticulatedLimb(bx + 5, shY + 3, fx, fy, 4, PAL.skin1, PAL.skin2);
+  const hx = fx + Math.round(Math.cos(ang) * 14);
+  const hy = fy + Math.round(Math.sin(ang) * 14);
+  buf.line(fx - Math.cos(ang) * 3, fy - Math.sin(ang) * 3, hx, hy, PAL.wood2, 3);
+  buf.rect(fx - 1, fy - 1, 3, 3, PAL.iron3);
   buf.shadedEllipse(hx, hy, 6, 6, PAL.iron0, PAL.iron2, PAL.iron4);
   // Spikes
   buf.set(hx + 6, hy, PAL.steel4);
@@ -544,23 +564,27 @@ function drawBossWarden(buf: PixelBuffer, m: EnemySpriteMetrics, pose: EnemyPose
   buf.rect(bx + 1, shY - 9, 5, 2, PAL.outline);
   buf.set(bx + 3, shY - 9, pose.state === 'telegraph' ? PAL.ember4 : PAL.soul5);
 
-  // Chained lantern-flail on back arm
+  // Chained lantern-flail on armored off-hand forearm
   const lx = bx - 16;
   const ly = shY + 14 + Math.round(Math.cos(p * Math.PI * 2) * 3);
-  buf.line(bx - 10, shY + 6, lx, ly, PAL.steel3);
+  buf.drawArticulatedLimb(bx - 9, shY + 3, bx - 13, shY + 8, 3, PAL.steel0, PAL.steel2);
+  buf.line(bx - 13, shY + 8, lx, ly, PAL.steel3);
   buf.shadedEllipse(lx, ly, 4, 5, PAL.soul1, PAL.soul3, PAL.soul5);
 
-  // Colossal spectral greatsword with crossguard
+  // Armored front arm + colossal spectral greatsword with crossguard & pommel
   const ang = pose.state === 'telegraph' ? -2.2 : pose.state === 'attack' ? 0.35 : -0.8;
-  const hx = bx + 10;
-  const hy = shY + 7;
-  const tx = hx + Math.round(Math.cos(ang) * 28);
-  const ty = hy + Math.round(Math.sin(ang) * 28);
+  const hx = bx + 10 + Math.round(Math.cos(ang) * 4);
+  const hy = shY + 6 + Math.round(Math.sin(ang) * 4);
+  buf.drawArticulatedLimb(bx + 9, shY + 3, hx, hy, 4, PAL.steel1, PAL.steel3);
+  const tx = hx + Math.round(Math.cos(ang) * 27);
+  const ty = hy + Math.round(Math.sin(ang) * 27);
+  buf.line(hx - Math.cos(ang) * 4, hy - Math.sin(ang) * 4, hx, hy, PAL.steel2, 2);
   buf.line(hx, hy, tx, ty, PAL.soul3, 3);
   buf.line(hx, hy, tx, ty, PAL.soul5, 1);
   const gx = Math.round(-Math.sin(ang) * 5);
   const gyOff = Math.round(Math.cos(ang) * 5);
   buf.line(hx - gx, hy - gyOff, hx + gx, hy + gyOff, PAL.steel4, 2);
+  buf.rect(hx - 1, hy - 1, 3, 3, PAL.steel4);
 
   buf.applyOutline(PAL.outline);
   if (pose.state === 'attack' && (pose.frame === 1 || pose.frame === 2)) {
@@ -614,18 +638,22 @@ function drawBossSovereign(buf: PixelBuffer, m: EnemySpriteMetrics, pose: EnemyP
   buf.set(bx + 2, shY - 9, PAL.ember5);
   buf.set(bx + 5, shY - 9, PAL.ember5);
 
-  // Giant Flaming Claymore with ornate gold crossguard
+  // Armored off-hand claw & front weapon arm + Giant Flaming Claymore
+  buf.drawArticulatedLimb(bx - 11, shY + 3, bx - 15, shY + 13, 4, PAL.obsidian1, PAL.gold2);
   const ang = pose.state === 'telegraph' ? -2.3 : pose.state === 'attack' ? 0.45 : -0.7;
-  const hx = bx + 12;
-  const hy = shY + 8;
-  const tx = hx + Math.round(Math.cos(ang) * 32);
-  const ty = hy + Math.round(Math.sin(ang) * 32);
+  const hx = bx + 12 + Math.round(Math.cos(ang) * 4);
+  const hy = shY + 7 + Math.round(Math.sin(ang) * 4);
+  buf.drawArticulatedLimb(bx + 11, shY + 3, hx, hy, 4, PAL.obsidian2, PAL.gold3);
+  const tx = hx + Math.round(Math.cos(ang) * 30);
+  const ty = hy + Math.round(Math.sin(ang) * 30);
+  buf.line(hx - Math.cos(ang) * 4, hy - Math.sin(ang) * 4, hx, hy, PAL.gold2, 2);
   buf.line(hx, hy, tx, ty, PAL.crimson2, 4);
   buf.line(hx, hy, tx, ty, PAL.ember4, 2);
   buf.line(hx, hy, tx, ty, PAL.ember5, 1);
   const gx = Math.round(-Math.sin(ang) * 6);
   const gyOff = Math.round(Math.cos(ang) * 6);
   buf.line(hx - gx, hy - gyOff, hx + gx, hy + gyOff, PAL.gold3, 3);
+  buf.rect(hx - 1, hy - 1, 3, 3, PAL.gold4);
 
   buf.applyOutline(PAL.outline);
   if (pose.state === 'attack' && (pose.frame === 1 || pose.frame === 2)) {
@@ -837,13 +865,16 @@ function drawBossInquisitor(buf: PixelBuffer, m: EnemySpriteMetrics, pose: Enemy
   buf.rect(bx + 1, shY - 5, 5, 2, PAL.outline);
   buf.set(bx + 3, shY - 5, pose.state === 'telegraph' ? PAL.ember5 : PAL.ember4);
 
-  // Colossal Chained Blazing Censer-Flail
+  // Armored off-hand & front weapon arm + Colossal Chained Blazing Censer-Flail
+  buf.drawArticulatedLimb(bx - 9, shY + 3, bx - 12, shY + 12, 3, PAL.iron0, PAL.iron2);
   const ang = pose.state === 'telegraph' ? -2.2 : pose.state === 'attack' ? 0.45 : -0.75;
-  const hx = bx + 9;
-  const hy = shY + 6;
-  const ballX = hx + Math.round(Math.cos(ang) * 24);
-  const ballY = hy + Math.round(Math.sin(ang) * 24);
+  const hx = bx + 9 + Math.round(Math.cos(ang) * 4);
+  const hy = shY + 5 + Math.round(Math.sin(ang) * 4);
+  buf.drawArticulatedLimb(bx + 8, shY + 3, hx, hy, 4, PAL.iron1, PAL.iron3);
+  const ballX = hx + Math.round(Math.cos(ang) * 23);
+  const ballY = hy + Math.round(Math.sin(ang) * 23);
   buf.line(hx, hy, ballX, ballY, PAL.steel3, 2);
+  buf.rect(hx - 1, hy - 1, 3, 3, PAL.gold3);
   buf.shadedEllipse(ballX, ballY, 6, 6, PAL.ember1, PAL.ember3, PAL.ember5);
   buf.set(ballX, ballY - 6, PAL.ember4);
 

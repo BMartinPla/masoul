@@ -311,7 +311,11 @@ function bakeTorchAnim(): SpriteAnimation {
   const bufs: PixelBuffer[] = [];
   for (let i = 0; i < 4; i++) {
     const buf = new PixelBuffer(18, 26, PIXEL_SCALE);
-    // Wrought-iron wall sconce with angled bracket & ring
+    // Chiseled dark-stone wall mounting plaque + wrought-iron sconce
+    buf.rect(5, 12, 8, 12, PAL.stone0);
+    buf.rect(6, 13, 6, 10, PAL.stone1);
+    buf.set(6, 13, PAL.steel3);
+    buf.set(11, 13, PAL.steel3);
     buf.rect(6, 13, 6, 2, PAL.iron2);
     buf.rect(8, 15, 2, 9, PAL.iron2);
     buf.line(4, 15, 8, 20, PAL.iron1, 1);

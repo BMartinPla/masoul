@@ -296,6 +296,15 @@ function drawHeroHead(
   }
 }
 
+function drawKnightOffhandShield(buf: PixelBuffer, backHandX: number, backHandY: number): void {
+  const sx = backHandX + 3;
+  const sy = backHandY + 1;
+  buf.rect(sx - 3, sy - 4, 6, 8, PAL.steel1);
+  buf.rect(sx - 2, sy - 3, 4, 6, PAL.crimson2);
+  buf.rect(sx - 1, sy - 2, 2, 4, PAL.gold3);
+  buf.rect(sx - 3, sy - 4, 6, 1, PAL.gold4);
+}
+
 function drawHeroWeapon(
   buf: PixelBuffer,
   style: HeroStyle,
@@ -307,24 +316,30 @@ function drawHeroWeapon(
 ): void {
   const cos = Math.cos(pose.weaponAngle);
   const sin = Math.sin(pose.weaponAngle);
+  const gx = Math.round(handX);
+  const gy = Math.round(handY);
 
   if (style.id === 'knight') {
-    // Broadsword
+    // Broadsword with pommel & front-hand gauntlet grip
     const tipX = handX + cos * 15;
     const tipY = handY + sin * 15;
     const perpX = -sin;
     const perpY = cos;
+    buf.line(handX - cos * 3, handY - sin * 3, handX, handY, PAL.wood2, 2);
+    buf.set(Math.round(handX - cos * 3), Math.round(handY - sin * 3), PAL.gold4);
     buf.line(handX - perpX * 2, handY - perpY * 2, handX + perpX * 2, handY + perpY * 2, PAL.gold3, 2);
     buf.line(handX, handY, tipX, tipY, PAL.steel3, 2);
     buf.line(handX + perpX * 0.6, handY + perpY * 0.6, tipX, tipY, PAL.steel5, 1);
 
-    // Kite Buckler Shield on off-hand
-    const sx = pose.shieldForward ? handX + 3 : backHandX + 1;
-    const sy = pose.shieldForward ? handY - 1 : backHandY;
-    buf.rect(sx - 3, sy - 4, 6, 8, PAL.steel1);
-    buf.rect(sx - 2, sy - 3, 4, 6, PAL.crimson2);
-    buf.rect(sx - 1, sy - 2, 2, 4, PAL.gold3);
-    buf.rect(sx - 3, sy - 4, 6, 1, PAL.gold4);
+    // Kite Buckler Shield in front when parrying (idle/run off-hand shield layers behind torso)
+    if (pose.shieldForward) {
+      const sx = handX + 3;
+      const sy = handY - 1;
+      buf.rect(sx - 3, sy - 4, 6, 8, PAL.steel1);
+      buf.rect(sx - 2, sy - 3, 4, 6, PAL.crimson2);
+      buf.rect(sx - 1, sy - 2, 2, 4, PAL.gold3);
+      buf.rect(sx - 3, sy - 4, 6, 1, PAL.gold4);
+    }
   } else if (style.id === 'rogue') {
     // Twin curved crimson-edged daggers
     const drawDagger = (hx: number, hy: number, ang: number, len: number): void => {
@@ -336,24 +351,27 @@ function drawHeroWeapon(
     };
     drawDagger(handX, handY, pose.weaponAngle, 9);
     drawDagger(backHandX, backHandY, pose.weaponAngle + 0.55, 8);
+    buf.rect(Math.round(backHandX) - 1, Math.round(backHandY) - 1, 2, 2, style.armorMid);
   } else if (style.id === 'pyromancer') {
-    // Runic Flame Staff
-    const topX = handX + cos * 12;
-    const topY = handY + sin * 12;
-    const botX = handX - cos * 6;
-    const botY = handY - sin * 6;
+    // Runic Flame Staff held aloft in idle/run/jump/fall
+    const staffAngle = pose.weaponAngle > 0.8 ? pose.weaponAngle : Math.min(-0.45, pose.weaponAngle);
+    const sc = Math.cos(staffAngle);
+    const ss = Math.sin(staffAngle);
+    const topX = handX + sc * 12;
+    const topY = handY + ss * 12;
+    const botX = handX - sc * 6;
+    const botY = handY - ss * 6;
     buf.line(botX, botY, topX, topY, PAL.wood2, 2);
     buf.line(botX, botY, topX, topY, PAL.iron3, 1);
-    // Orb flame
     buf.shadedEllipse(topX, topY, 3, 3, PAL.ember1, PAL.ember3, PAL.ember5);
     buf.set(topX, topY - 3, PAL.ember4);
 
     // Levitating Grimoire near back hand
-    const gx = backHandX - 3;
-    const gy = backHandY - 4 + Math.round(Math.sin(pose.capePhase * 1.5));
-    buf.rect(gx - 3, gy - 2, 6, 5, PAL.crimson2);
-    buf.rect(gx - 2, gy - 1, 4, 3, PAL.bone4);
-    buf.set(gx, gy, PAL.ember4);
+    const grx = backHandX - 3;
+    const gry = backHandY - 4 + Math.round(Math.sin(pose.capePhase * 1.5));
+    buf.rect(grx - 3, gry - 2, 6, 5, PAL.crimson2);
+    buf.rect(grx - 2, gry - 1, 4, 3, PAL.bone4);
+    buf.set(grx, gry, PAL.ember4);
   } else if (style.id === 'templar') {
     // Radiant Sun-Halberd Spear
     const tipX = handX + cos * 19;
@@ -363,8 +381,8 @@ function drawHeroWeapon(
     const perpX = -sin;
     const perpY = cos;
     buf.line(shaftBackX, shaftBackY, tipX, tipY, PAL.gold3, 2);
+    buf.set(Math.round(shaftBackX), Math.round(shaftBackY), PAL.gold4);
     buf.line(handX + cos * 11, handY + sin * 11, tipX, tipY, PAL.steel5, 2);
-    // Halberd crescent blade
     buf.poly(
       [
         [handX + cos * 12, handY + sin * 12],
@@ -381,9 +399,16 @@ function drawHeroWeapon(
     const perpX = -sin;
     const perpY = cos;
     buf.line(handX - cos * 6, handY - sin * 6, headX, headY, PAL.bone2, 2);
-    buf.line(headX, headY, headX + perpX * 8 - cos * 4, headY + perpY * 8 - sin * 4, PAL.venom3, 3);
-    buf.line(headX, headY, headX + perpX * 9 - cos * 5, headY + perpY * 9 - sin * 5, PAL.soul5, 1);
-    // Orbiting miniature soul skull
+    buf.poly(
+      [
+        [headX, headY],
+        [headX + perpX * 5 + cos * 2, headY + perpY * 5 + sin * 2],
+        [headX + perpX * 9 - cos * 4, headY + perpY * 9 - sin * 4],
+        [headX + perpX * 5 - cos * 3, headY + perpY * 5 - sin * 3],
+      ],
+      PAL.venom3,
+    );
+    buf.line(headX, headY, headX + perpX * 9 - cos * 4, headY + perpY * 9 - sin * 4, PAL.soul5, 1);
     const sx = backHandX - 4;
     const sy = backHandY - 5 + Math.round(Math.sin(pose.capePhase * 1.4));
     buf.shadedEllipse(sx, sy, 2, 2, PAL.moss1, PAL.bone3, PAL.bone4);
@@ -395,6 +420,7 @@ function drawHeroWeapon(
     const perpX = -sin;
     const perpY = cos;
     buf.line(handX - cos * 4, handY - sin * 4, headX, headY, PAL.wood2, 2);
+    buf.set(Math.round(handX - cos * 4), Math.round(handY - sin * 4), PAL.gold3);
     buf.poly(
       [
         [headX - cos * 3, headY - sin * 3],
@@ -413,6 +439,9 @@ function drawHeroWeapon(
       1,
     );
   }
+
+  // Armored gauntlet gripping weapon shaft
+  buf.rect(gx - 1, gy - 1, 2, 2, style.armorLight);
 }
 
 function renderHeroFrame(style: HeroStyle, pose: HeroPose): PixelBuffer {
@@ -541,6 +570,9 @@ function renderHeroFrame(style: HeroStyle, pose: HeroPose): PixelBuffer {
     style.armorShadow,
     style.armorMid,
   );
+  if (style.id === 'knight' && !pose.shieldForward) {
+    drawKnightOffhandShield(buf, backHandX, backHandY);
+  }
 
   // Back leg
   const backHipX = cx - 2;
@@ -661,7 +693,7 @@ function buildHeroAnimations(style: HeroStyle): SpriteSet<CharacterAnimState> {
       legFront: [2, 8],
       legBack: [-2, 8],
       armFront: [4, 4 + (i % 2)],
-      armBack: [-2, 4],
+      armBack: [2, 4],
       capePhase: i * 1.4,
       capeSweepX: -2 - (i % 2),
       weaponAngle: -0.45 + (i % 2) * 0.08,
@@ -686,11 +718,11 @@ function buildHeroAnimations(style: HeroStyle): SpriteSet<CharacterAnimState> {
       squashX: 1,
       legFront: [fx, fy],
       legBack: [bx, by],
-      armFront: [-3 + (i % 3) * 2, 4],
-      armBack: [3 - (i % 3) * 2, 4],
+      armFront: [4 - (i % 3), 4],
+      armBack: [-2 + (i % 3), 4],
       capePhase: i * 1.05,
       capeSweepX: -8,
-      weaponAngle: -2.4,
+      weaponAngle: 0.22 + (i % 2) * 0.08,
     })),
     12,
     true,

@@ -224,17 +224,20 @@ export function generateDungeon(
               flicker: 0.1,
             });
             break;
-          case 'B':
-            props.push({ kind: 'brazier', x: wx, y: DOOR_FLOOR_ROW * TILE_SIZE, variant: 0 });
+          case 'B': {
+            const snap = snapToSurface(room, x, y);
+            const by = snap.surfaceRow * TILE_SIZE;
+            props.push({ kind: 'brazier', x: wx, y: by, variant: 0 });
             lights.push({
               x: wx,
-              y: DOOR_FLOOR_ROW * TILE_SIZE - 16,
+              y: by - 16,
               radius: 95,
               color: biome.torchColor,
               intensity: 1.0,
               flicker: 0.12,
             });
             break;
+          }
           case 'W':
             props.push({ kind: 'rose_window', x: wx, y: y * TILE_SIZE + 16, variant: 0 });
             lights.push({
@@ -451,21 +454,26 @@ export function generateDungeon(
 
   // Deterministic architectural pillars & gothic statues along open floor bays
   for (let tx = 8; tx < tileMap.width - 8; tx += 10) {
-    if (
-      tileMap.isSolid(tx, DOOR_FLOOR_ROW) &&
-      tileMap.getTile(tx, DOOR_FLOOR_ROW - 1) === 0 &&
-      tileMap.getTile(tx, DOOR_FLOOR_ROW - 2) === 0 &&
-      tileMap.getTile(tx, DOOR_FLOOR_ROW - 3) === 0
-    ) {
-      const wx = tx * TILE_SIZE + TILE_SIZE * 0.5;
-      if (interactives.some((st) => Math.abs(st.x - wx) < 26)) continue;
-      props.push({
-        kind: (tx / 10) % 2 === 0 ? 'pillar' : 'statue',
-        x: wx,
-        y: DOOR_FLOOR_ROW * TILE_SIZE,
-        variant: tx % 3,
-      });
+    const isPillar = (tx / 10) % 2 === 0;
+    const neededClear = isPillar ? 4 : 5;
+    let clear = tileMap.isSolid(tx, DOOR_FLOOR_ROW);
+    for (let u = 1; u <= neededClear && clear; u++) {
+      if (tileMap.getTile(tx, DOOR_FLOOR_ROW - u) !== 0) clear = false;
     }
+    if (!clear) continue;
+    const wx = tx * TILE_SIZE + TILE_SIZE * 0.5;
+    if (Math.abs(playerSpawn.x - wx) < 34) continue;
+    if (bossSpawn && Math.abs(bossSpawn.x - wx) < 42) continue;
+    if (interactives.some((st) => Math.abs(st.x - wx) < 34)) continue;
+    if (props.some((pr) => Math.abs(pr.x - wx) < 34 && Math.abs(pr.y - DOOR_FLOOR_ROW * TILE_SIZE) < 32)) {
+      continue;
+    }
+    props.push({
+      kind: isPillar ? 'pillar' : 'statue',
+      x: wx,
+      y: DOOR_FLOOR_ROW * TILE_SIZE,
+      variant: tx % 3,
+    });
   }
 
   return {

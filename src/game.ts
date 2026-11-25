@@ -1344,6 +1344,7 @@ export class MasoulGame {
     this.drawTiledLayer(ctx, parallax.nearVaults, camPxX * 0.56);
 
     // 2. Background Decorative Props & Volumetric Rose Window Sunbeams
+    const tm = this.level.tileMap;
     for (const p of this.props) {
       const px = Math.round(p.x * PIXEL_SCALE) - camPxX;
       const py = Math.round(p.y * PIXEL_SCALE) - camPxY;
@@ -1364,10 +1365,28 @@ export class MasoulGame {
         ctx.fill();
         ctx.restore();
       } else if (p.kind === 'banner') {
+        // Anchor banner to the nearest solid ceiling above with twin dark-iron suspension rods
+        const btx = Math.floor(p.x / TILE_SIZE);
+        let bty = Math.floor(p.y / TILE_SIZE);
+        while (bty > 0 && !tm.isSolid(btx, bty - 1)) bty--;
+        const ceilPxY = bty * TILE_PX - camPxY;
+        if (py > ceilPxY) {
+          ctx.fillStyle = '#191922';
+          ctx.fillRect(px - 9, ceilPxY, 2, py - ceilPxY + 3);
+          ctx.fillRect(px + 7, ceilPxY, 2, py - ceilPxY + 3);
+        }
         const frame = getAnimationFrame(ts.bannerAnim[biomeId], this.worldTime + p.variant, 1);
         ctx.drawImage(frame, px - Math.floor(frame.width * 0.5), py);
       } else if (p.kind === 'chain') {
-        ctx.drawImage(ts.chain, px - Math.floor(ts.chain.width * 0.5), py);
+        const ctxTileX = Math.floor(p.x / TILE_SIZE);
+        let cty = Math.floor(p.y / TILE_SIZE);
+        while (cty > 0 && !tm.isSolid(ctxTileX, cty - 1)) cty--;
+        const topY = cty * TILE_PX - camPxY;
+        const cx = px - Math.floor(ts.chain.width * 0.5);
+        ctx.drawImage(ts.chain, cx, topY);
+        ctx.drawImage(ts.chain, cx, topY + ts.chain.height);
+        ctx.fillStyle = '#434457';
+        ctx.fillRect(px - 3, topY + ts.chain.height * 2, 6, 4);
       } else if (p.kind === 'torch') {
         const frame = getAnimationFrame(ts.torchAnim, this.worldTime + p.variant * 0.25, 1);
         ctx.drawImage(frame, px - Math.floor(frame.width * 0.5), py - Math.floor(frame.height * 0.5));
@@ -1375,20 +1394,47 @@ export class MasoulGame {
         const frame = getAnimationFrame(ts.brazierAnim, this.worldTime, 1);
         drawBottomCenter(frame, px, py);
       } else if (p.kind === 'pillar') {
-        drawBottomCenter(ts.pillar[biomeId], px, py);
+        const pil = ts.pillar[biomeId];
+        const ptx = Math.floor(p.x / TILE_SIZE);
+        let pty = Math.floor((p.y - 4) / TILE_SIZE);
+        while (pty > 0 && !tm.isSolid(ptx, pty - 1) && !tm.isPlatform(ptx, pty - 1)) {
+          pty--;
+        }
+        const topSurfacePxY = pty * TILE_PX - camPxY;
+        const span = py - topSurfacePxY;
+        if (span >= 72) {
+          const pxLeft = px - Math.floor(pil.width * 0.5);
+          const capH = 14;
+          const baseH = 18;
+          const shaftSrcY = 14;
+          const shaftSrcH = pil.height - capH - baseH;
+          // Base plinth
+          ctx.drawImage(pil, 0, pil.height - baseH, pil.width, baseH, pxLeft, py - baseH, pil.width, baseH);
+          // Tiled fluted shaft up to capital
+          let curY = py - baseH;
+          const stopY = topSurfacePxY + capH;
+          while (curY > stopY) {
+            const segH = Math.min(shaftSrcH, curY - stopY);
+            ctx.drawImage(pil, 0, shaftSrcY, pil.width, segH, pxLeft, curY - segH, pil.width, segH);
+            curY -= segH;
+          }
+          // Flared gothic capital flush against ceiling/platform
+          ctx.drawImage(pil, 0, 0, pil.width, capH, pxLeft, topSurfacePxY, pil.width, capH);
+        } else {
+          drawBottomCenter(pil, px, py);
+        }
       } else if (p.kind === 'statue') {
         drawBottomCenter(ts.statue[biomeId], px, py);
       }
     }
 
     // 3. Structural Support Stanchions / Ceiling Chains + Auto-Tiled 24x24px Stonework & 3-Slice Platforms
-    const tm = this.level.tileMap;
     const minTx = Math.max(0, Math.floor(camWorldX / TILE_SIZE));
     const maxTx = Math.min(tm.width - 1, Math.ceil((camWorldX + WORLD_VIEW_W) / TILE_SIZE));
     const minTy = Math.max(0, Math.floor(camWorldY / TILE_SIZE));
     const maxTy = Math.min(tm.height - 1, Math.ceil((camWorldY + WORLD_VIEW_H) / TILE_SIZE));
 
-    // Pass 3a: Structural stanchions down to nearby floors or iron chains up to ceiling vaults
+    // Pass 3a: Structural stanchions down to nearby floors or iron chains up to ceiling vaults (zero air gaps)
     for (let ty = minTy; ty <= maxTy; ty++) {
       for (let tx = minTx; tx <= maxTx; tx++) {
         if (tm.getTile(tx, ty) !== 2) continue;
@@ -1398,7 +1444,7 @@ export class MasoulGame {
 
         const sx = tx * TILE_PX - camPxX;
         let supportDist = -1;
-        for (let d = 1; d <= 4; d++) {
+        for (let d = 1; d <= 6; d++) {
           const below = tm.getTile(tx, ty + d);
           if (below === 1 || below === 2) {
             supportDist = d;
@@ -1407,13 +1453,17 @@ export class MasoulGame {
           if (below === 3) break;
         }
 
-        if (supportDist > 1) {
-          for (let d = 1; d < supportDist; d++) {
-            ctx.drawImage(ts.supportBeam[biomeId], sx, (ty + d) * TILE_PX - camPxY);
+        if (supportDist >= 1) {
+          const beam = ts.supportBeam[biomeId];
+          const startY = ty * TILE_PX + 8 - camPxY;
+          const endY = (ty + supportDist) * TILE_PX - camPxY;
+          for (let cy = startY; cy < endY; cy += beam.height) {
+            const drawH = Math.min(beam.height, endY - cy);
+            ctx.drawImage(beam, 0, 0, beam.width, drawH, sx, cy, beam.width, drawH);
           }
-        } else if (supportDist === -1) {
+        } else {
           let ceilDist = -1;
-          for (let u = 1; u <= 10; u++) {
+          for (let u = 1; u <= 20; u++) {
             if (ty - u < 0) break;
             const above = tm.getTile(tx, ty - u);
             if (above === 1) {
@@ -1424,7 +1474,7 @@ export class MasoulGame {
           }
           if (ceilDist >= 2) {
             const startY = (ty - ceilDist + 1) * TILE_PX - camPxY;
-            const endY = ty * TILE_PX - camPxY;
+            const endY = ty * TILE_PX + 2 - camPxY;
             const cx = sx + Math.floor((TILE_PX - ts.chain.width) * 0.5);
             for (let cy = startY; cy < endY; cy += ts.chain.height) {
               const drawH = Math.min(ts.chain.height, endY - cy);
@@ -1463,13 +1513,21 @@ export class MasoulGame {
       }
     }
 
-    // 4. Sanctuary Sibling Hero Showcase (all remaining heroes stand guard near Hall of Heroes)
+    // 4. Sanctuary Sibling Hero Showcase (honor guard flanking Hall of Heroes monument)
     if (biomeId === 'sanctuary') {
       const others = CHARACTER_LIST.filter((c) => c.id !== this.player.id);
+      const slots: Array<{ tx: number; facing: 1 | -1 }> = [
+        { tx: 22.8, facing: 1 },
+        { tx: 24.1, facing: 1 },
+        { tx: 29.9, facing: -1 },
+        { tx: 31.2, facing: -1 },
+        { tx: 32.5, facing: -1 },
+      ];
       others.forEach((hero, i) => {
-        const hx = Math.round(23.5 * TILE_SIZE + i * 24);
+        const slot = slots[i] ?? { tx: 22.8 + i * 1.4, facing: -1 };
+        const hx = Math.round(slot.tx * TILE_SIZE);
         const hy = 17 * TILE_SIZE;
-        const frame = getAnimationFrame(this.assets.characters[hero.id].idle, this.worldTime + i, -1);
+        const frame = getAnimationFrame(this.assets.characters[hero.id].idle, this.worldTime + i, slot.facing);
         ctx.drawImage(
           frame,
           Math.round(hx * PIXEL_SCALE) - camPxX - HERO_ANCHOR_X,
