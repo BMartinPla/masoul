@@ -99,6 +99,21 @@ function resolveGlyph(
   return glyphs[ch] ?? glyphs[ch.toUpperCase()];
 }
 
+function normalizeCompactText(text: string): string {
+  return text
+    .replace(/[\u2014\u2013]/g, '-')
+    .replace(/[¡]/g, '!')
+    .replace(/[¿]/g, '?')
+    .replace(/[ÁÀÄÂ]/gi, 'A')
+    .replace(/[ÉÈËÊ]/gi, 'E')
+    .replace(/[ÍÌÏÎ]/gi, 'I')
+    .replace(/[ÓÒÖÔ]/gi, 'O')
+    .replace(/[ÚÙÛ]/gi, 'U')
+    .replace(/[Ü]/gi, 'U')
+    .replace(/[Ñ]/gi, 'N')
+    .toUpperCase();
+}
+
 export function measurePixelText(
   text: string,
   scale = 1,
@@ -106,7 +121,8 @@ export function measurePixelText(
 ): number {
   if (!text.length) return 0;
   if (variant === 'compact') {
-    return (text.length * 4 - 1) * scale;
+    const clean = normalizeCompactText(text);
+    return (clean.length * 4 - 1) * scale;
   }
 
   const { glyphs, spaceWidth } = getBitmapConfig(variant);
@@ -146,7 +162,7 @@ export function drawPixelText(
   const startY = Math.round(y);
 
   if (variant === 'compact') {
-    const upper = text.replace(/[\u2014\u2013]/g, '-').toUpperCase();
+    const upper = normalizeCompactText(text);
     const drawCompactPass = (passX: number, passY: number, fill: string): void => {
       ctx.fillStyle = fill;
       let cursorX = passX;

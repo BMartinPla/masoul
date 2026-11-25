@@ -4,6 +4,7 @@ import type {
   EnemyAnimState,
   EnemyId,
   GameScreen,
+  Language,
   MetaUpgradeId,
   RelicId,
   RunStats,
@@ -17,7 +18,18 @@ import { getActiveSynergies, RELIC_LIST, RELICS } from '../data/relics.ts';
 import { getGameAssets } from '../art/assets.ts';
 import { getAnimationFrame, type SpriteAnimation } from '../art/spriteAtlas.ts';
 import {
+  locAchievement,
+  locEnemy,
+  locHero,
+  locRarity,
+  locRelic,
+  locSynergy,
+  locUpgrade,
+  tr,
+} from '../i18n/translations.ts';
+import {
   computeDeathSoulRetention,
+  countMaxedUpgrades,
   getUpgradeCost,
   type MetaProgressionManager,
 } from '../systems/metaprogression.ts';
@@ -31,6 +43,8 @@ export interface OverlayCallbacks {
   onSelectScroll: (stat: ScrollStat) => void;
   onBuyMerchant: (choice: 'heal' | 'weapon' | 'relic') => void;
   onBuyUpgrade: (id: MetaUpgradeId) => void;
+  onPrestige: () => void;
+  onSelectLanguage: (lang: Language) => void;
   onSelectOrUnlockHero: (id: CharacterId) => void;
   onReturnSanctuary: () => void;
   onQuickRetry: () => void;
@@ -139,21 +153,40 @@ export class MenuOverlay {
   private buildTitleScreen(): HTMLElement {
     const box = document.createElement('div');
     box.className = 'title-container';
+    const lang = this.meta.data.language;
+    const prestige = this.meta.data.prestigeLevel ?? 0;
+    const prestigeTag =
+      prestige > 0
+        ? ` &nbsp;|&nbsp; ${tr('PRESTIGE', 'PRESTIGIO')} ${prestige} (+${prestige * 20}%)`
+        : '';
+
     box.innerHTML = `
       <div class="title-emblem">MASOUL</div>
-      <div class="title-subtitle">A Gothic Pixel-Art Action Roguelike</div>
+      <div class="title-subtitle">${tr('A Gothic Pixel-Art Action Roguelike', 'Un Roguelike de Acción Gótico Pixel-Art')}</div>
       <p class="title-lore">
-        Descend into the cursed cathedrals, master blade and ember, harvest lost Souls, and overthrow the Crimson Sovereign.
+        ${tr(
+          'Descend into the cursed cathedrals, master blade and ember, harvest lost Souls, and overthrow the Crimson Sovereign.',
+          'Desciende a las catedrales malditas, domina el acero y la brasa, cosecha Almas perdidas y derroca al Soberano Carmesí.',
+        )}
       </p>
-      <div class="soul-pill">BANKED SOULS: ${this.meta.data.souls} &nbsp;|&nbsp; HERO: ${CHARACTERS[this.meta.data.selectedCharacter].name.toUpperCase()}</div>
+      <div class="soul-pill">${tr('BANKED SOULS', 'ALMAS GUARDADAS')}: ${this.meta.data.souls} &nbsp;|&nbsp; ${tr('HERO', 'HÉROE')}: ${CHARACTERS[this.meta.data.selectedCharacter].name.toUpperCase()}${prestigeTag}</div>
+      <div style="display:flex; gap:8px; justify-content:center;">
+        <button class="gothic-btn small ${lang === 'en' ? 'active-tab' : ''}" data-lang="en">English</button>
+        <button class="gothic-btn small ${lang === 'es' ? 'active-tab' : ''}" data-lang="es">Español</button>
+      </div>
       <div class="btn-stack">
-        <button class="gothic-btn primary" data-action="sanctuary">Enter the Sanctuary</button>
-        <button class="gothic-btn soul" data-action="quick-run">Descend Directly into the Crypt</button>
-        <button class="gothic-btn" data-action="codex">Heroes & Bestiary Codex</button>
-        <button class="gothic-btn" data-action="deeds">Book of Deeds (${this.meta.data.achievements.length}/${ACHIEVEMENT_LIST.length})</button>
-        <button class="gothic-btn" data-action="controls">Controls & Mechanics</button>
+        <button class="gothic-btn primary" data-action="sanctuary">${tr('Enter the Sanctuary', 'Entrar al Santuario')}</button>
+        <button class="gothic-btn soul" data-action="quick-run">${tr('Descend Directly into the Crypt', 'Descender Directo a la Cripta')}</button>
+        <button class="gothic-btn" data-action="codex">${tr('Heroes & Bestiary Codex', 'Códice de Héroes y Bestiario')}</button>
+        <button class="gothic-btn" data-action="deeds">${tr('Book of Deeds', 'Libro de Hazañas')} (${this.meta.data.achievements.length}/${ACHIEVEMENT_LIST.length})</button>
+        <button class="gothic-btn" data-action="controls">${tr('Controls & Mechanics', 'Controles y Mecánicas')}</button>
       </div>
     `;
+    box.querySelectorAll('[data-lang]').forEach((btn) =>
+      btn.addEventListener('click', () =>
+        this.cb.onSelectLanguage((btn as HTMLElement).dataset.lang as Language),
+      ),
+    );
     box.querySelector('[data-action="sanctuary"]')?.addEventListener('click', () => this.cb.onStartSanctuary());
     box.querySelector('[data-action="quick-run"]')?.addEventListener('click', () => this.cb.onStartRun());
     box.querySelector('[data-action="codex"]')?.addEventListener('click', () => this.cb.onOpenScreen('codex'));
@@ -165,23 +198,52 @@ export class MenuOverlay {
   private buildSoulAltar(): HTMLElement {
     const panel = document.createElement('div');
     panel.className = 'gothic-panel';
+    const prestige = this.meta.data.prestigeLevel ?? 0;
+    const canPrestige = this.meta.canPrestige();
+    const maxedCount = countMaxedUpgrades(this.meta.data);
+    const totalUpgrades = META_UPGRADE_LIST.length;
 
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Soul Altar</div>
-          <div class="card-sub">Permanent Metaprogression Across Every Run</div>
+          <div class="panel-title">${tr('Soul Altar', 'Altar de Almas')}</div>
+          <div class="card-sub">${tr('Permanent Metaprogression Across Every Run', 'Metaprogresión Permanente Entre Incursiones')}</div>
         </div>
-        <div class="soul-pill">BANKED SOULS: ${this.meta.data.souls}</div>
+        <div class="soul-pill">${tr('BANKED SOULS', 'ALMAS GUARDADAS')}: ${this.meta.data.souls}</div>
+      </div>
+      <div class="card ${canPrestige ? 'selected' : ''}" style="margin-bottom:14px; border-color:var(--border-gold);">
+        <div class="card-title">
+          <span style="color:var(--text-gold)">${tr('Prestige Ascension', 'Ascensión de Prestigio')} &bull; ${tr('Rank', 'Rango')} ${prestige}</span>
+          <span class="tag" style="color:var(--text-soul)">+${prestige * 20}% ${tr('TOTAL STATS', 'ESTADÍSTICAS TOTALES')}</span>
+        </div>
+        <div class="card-desc">
+          ${tr(
+            'Max every Soul Altar upgrade to ascend. Ascending resets upgrade ranks to 0 and permanently grants +20% to all hero stats (HP, Damage, Speed, Crit, Cooldowns, Souls & Surge) per Prestige.',
+            'Lleva todas las mejoras del Altar al rango máximo para ascender. Al ascender, las mejoras vuelven a rango 0 y obtienes +20% permanente a todas las estadísticas totales por cada Prestigio.',
+          )}
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span class="card-sub">${tr('Maxed Upgrades', 'Mejoras al máximo')}: ${maxedCount}/${totalUpgrades}</span>
+          <button class="gothic-btn primary small" data-action="prestige" ${canPrestige ? '' : 'disabled'}>
+            ${
+              canPrestige
+                ? tr(`Ascend to Prestige ${prestige + 1} (+20% Stats)`, `Ascender a Prestigio ${prestige + 1} (+20% Estadísticas)`)
+                : tr('Max All Upgrades to Prestige', 'Maximiza Todas las Mejoras para Prestigiar')
+            }
+          </button>
+        </div>
       </div>
       <div class="grid-2" id="upgrade-grid"></div>
       <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:10px;">
-        <button class="gothic-btn primary" data-action="close">Return to Sanctuary</button>
+        <button class="gothic-btn primary" data-action="close">${tr('Return to Sanctuary', 'Volver al Santuario')}</button>
       </div>
     `;
 
+    panel.querySelector('[data-action="prestige"]')?.addEventListener('click', () => this.cb.onPrestige());
+
     const grid = panel.querySelector('#upgrade-grid')!;
-    for (const up of META_UPGRADE_LIST) {
+    for (const rawUp of META_UPGRADE_LIST) {
+      const up = locUpgrade(rawUp);
       const rank = this.meta.data.upgrades[up.id] ?? 0;
       const maxed = rank >= up.maxRank;
       const cost = getUpgradeCost(up.id, rank);
@@ -198,13 +260,13 @@ export class MenuOverlay {
       card.innerHTML = `
         <div class="card-title">
           <span>${up.name}</span>
-          <span class="tag" style="color:var(--text-soul)">RANK ${rank}/${up.maxRank}</span>
+          <span class="tag" style="color:var(--text-soul)">${tr('RANK', 'RANGO')} ${rank}/${up.maxRank}</span>
         </div>
         <div class="pip-row">${pipsHtml}</div>
         <div class="card-desc">${up.description}</div>
         <div class="stat-row"><span>${up.bonusPerRankLabel}</span></div>
         <button class="gothic-btn soul small" ${canAfford ? '' : 'disabled'}>
-          ${maxed ? 'MAXED' : `FORGE (${cost} SOULS)`}
+          ${maxed ? tr('MAXED', 'AL MÁXIMO') : `${tr('FORGE', 'FORJAR')} (${cost} ${tr('SOULS', 'ALMAS')})`}
         </button>
       `;
       card.querySelector('button')?.addEventListener('click', () => this.cb.onBuyUpgrade(up.id));
@@ -221,21 +283,22 @@ export class MenuOverlay {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Hall of Heroes</div>
-          <div class="card-sub">Choose or Unlock Your Vessel</div>
+          <div class="panel-title">${tr('Hall of Heroes', 'Salón de Héroes')}</div>
+          <div class="card-sub">${tr('Choose or Unlock Your Vessel', 'Elige o Desbloquea tu Recipiente')}</div>
         </div>
-        <div class="soul-pill">BANKED SOULS: ${this.meta.data.souls}</div>
+        <div class="soul-pill">${tr('BANKED SOULS', 'ALMAS GUARDADAS')}: ${this.meta.data.souls}</div>
       </div>
       <div class="grid-2" id="hero-grid"></div>
       <div style="margin-top:16px; display:flex; justify-content:flex-end;">
-        <button class="gothic-btn primary" data-action="close">Return to Sanctuary</button>
+        <button class="gothic-btn primary" data-action="close">${tr('Return to Sanctuary', 'Volver al Santuario')}</button>
       </div>
     `;
 
     const assets = getGameAssets();
     const grid = panel.querySelector('#hero-grid')!;
 
-    for (const hero of CHARACTER_LIST) {
+    for (const rawHero of CHARACTER_LIST) {
+      const hero = locHero(rawHero);
       const unlocked = this.meta.isCharacterUnlocked(hero.id);
       const selected = this.meta.data.selectedCharacter === hero.id;
       const canUnlock = !unlocked && this.meta.data.souls >= hero.unlockCost;
@@ -272,12 +335,12 @@ export class MenuOverlay {
       info.innerHTML = `
         <div class="card-desc">${hero.description}</div>
         <div class="stat-row">
-          <span>HP: ${hero.maxHp}</span>
-          <span>DMG: ${hero.baseDamage}</span>
-          <span>SPD: ${hero.moveSpeed}</span>
-          <span>CRIT: ${Math.round(hero.critChance * 100)}%</span>
+          <span>${tr('HP', 'PS')}: ${hero.maxHp}</span>
+          <span>${tr('DMG', 'DAÑO')}: ${hero.baseDamage}</span>
+          <span>${tr('SPD', 'VEL')}: ${hero.moveSpeed}</span>
+          <span>${tr('CRIT', 'CRÍT')}: ${Math.round(hero.critChance * 100)}%</span>
         </div>
-        <div class="skill-box"><strong>Passive — ${hero.passiveName}:</strong> ${hero.passiveDesc}</div>
+        <div class="skill-box"><strong>${tr('Passive', 'Pasiva')} — ${hero.passiveName}:</strong> ${hero.passiveDesc}</div>
         <div class="skill-box"><strong>[Q] ${hero.skill1.name}:</strong> ${hero.skill1.description}</div>
         <div class="skill-box"><strong>[E] ${hero.skill2.name}:</strong> ${hero.skill2.description}</div>
       `;
@@ -286,11 +349,11 @@ export class MenuOverlay {
       const btn = document.createElement('button');
       btn.className = `gothic-btn small ${selected ? 'primary' : unlocked ? '' : 'soul'}`;
       if (selected) {
-        btn.textContent = 'SELECTED HERO';
+        btn.textContent = tr('SELECTED HERO', 'HÉROE SELECCIONADO');
       } else if (unlocked) {
-        btn.textContent = 'SELECT HERO';
+        btn.textContent = tr('SELECT HERO', 'SELECCIONAR');
       } else {
-        btn.textContent = `UNLOCK (${hero.unlockCost} SOULS)`;
+        btn.textContent = `${tr('UNLOCK', 'DESBLOQUEAR')} (${hero.unlockCost} ${tr('SOULS', 'ALMAS')})`;
         btn.disabled = !canUnlock;
       }
       btn.addEventListener('click', () => this.cb.onSelectOrUnlockHero(hero.id));
@@ -309,8 +372,8 @@ export class MenuOverlay {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Choose a Relic</div>
-          <div class="card-sub">Ancient power bound within the shrine</div>
+          <div class="panel-title">${tr('Choose a Relic', 'Elige una Reliquia')}</div>
+          <div class="card-sub">${tr('Ancient power bound within the shrine', 'Poder ancestral sellado en el sagrario')}</div>
         </div>
       </div>
       <div class="grid-3" id="relic-grid"></div>
@@ -318,7 +381,7 @@ export class MenuOverlay {
     const grid = panel.querySelector('#relic-grid')!;
     const relicIcons = getGameAssets().relicIcons;
     choices.forEach((id, idx) => {
-      const r = RELICS[id];
+      const r = locRelic(RELICS[id]);
       const card = document.createElement('div');
       card.className = `card rarity-${r.rarity}`;
       const iconCanvas = document.createElement('canvas');
@@ -331,9 +394,9 @@ export class MenuOverlay {
           <span style="color:${r.iconColor}; flex:1">${r.name}</span>
           <span class="kbd">[${idx + 1}]</span>
         </div>
-        <div class="card-sub">${r.rarity} &bull; ${r.shortTag}</div>
+        <div class="card-sub">${locRarity(r.rarity)} &bull; ${r.shortTag}</div>
         <div class="card-desc" style="flex:1">${r.description}</div>
-        <button class="gothic-btn primary small">Claim Relic [${idx + 1}]</button>
+        <button class="gothic-btn primary small">${tr('Claim Relic', 'Reclamar Reliquia')} [${idx + 1}]</button>
       `;
       card.querySelector('.card-title')?.prepend(iconCanvas);
       card.querySelector('button')?.addEventListener('click', () => this.cb.onSelectRelic(id));
@@ -350,13 +413,14 @@ export class MenuOverlay {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Trinity Scroll</div>
-          <div class="card-sub">Channel Forbidden Knowledge into Body, Blade, or Sorcery</div>
+          <div class="panel-title">${tr('Trinity Scroll', 'Pergamino de la Trinidad')}</div>
+          <div class="card-sub">${tr('Channel Forbidden Knowledge into Body, Blade, or Sorcery', 'Canaliza el Conocimiento Prohibido en Cuerpo, Acero o Hechicería')}</div>
         </div>
       </div>
       <div class="grid-3" id="scroll-grid"></div>
     `;
 
+    const rankWord = tr('RANK', 'RANGO');
     const defs: Array<{
       stat: ScrollStat;
       name: string;
@@ -366,24 +430,33 @@ export class MenuOverlay {
     }> = [
       {
         stat: 'brutality',
-        name: 'Brutality',
+        name: tr('Brutality', 'Brutalidad'),
         color: '#ff6b7a',
-        tag: `RANK ${cur.brutality} -> ${cur.brutality + 1}`,
-        desc: '+15% Weapon & Melee Damage and +12% Max HP (+heal).',
+        tag: `${rankWord} ${cur.brutality} -> ${cur.brutality + 1}`,
+        desc: tr(
+          '+15% Weapon & Melee Damage and +12% Max HP (+heal).',
+          '+15% Daño de Arma y Cuerpo a Cuerpo, y +12% PS Máx. (+curación).',
+        ),
       },
       {
         stat: 'tactics',
-        name: 'Tactics',
+        name: tr('Tactics', 'Táctica'),
         color: '#ba82ed',
-        tag: `RANK ${cur.tactics} -> ${cur.tactics + 1}`,
-        desc: '+15% Skill & Spell Damage, +8% Cooldown Speed, and +10% Max HP (+heal).',
+        tag: `${rankWord} ${cur.tactics} -> ${cur.tactics + 1}`,
+        desc: tr(
+          '+15% Skill & Spell Damage, +8% Cooldown Speed, and +10% Max HP (+heal).',
+          '+15% Daño de Habilidades, +8% Recarga y +10% PS Máx. (+curación).',
+        ),
       },
       {
         stat: 'survival',
-        name: 'Survival',
+        name: tr('Survival', 'Supervivencia'),
         color: '#67d487',
-        tag: `RANK ${cur.survival} -> ${cur.survival + 1}`,
-        desc: '+18% Max HP (+heal), +12% Parry/Dive Slam Damage, and +5% Flask Potency.',
+        tag: `${rankWord} ${cur.survival} -> ${cur.survival + 1}`,
+        desc: tr(
+          '+18% Max HP (+heal), +12% Parry/Dive Slam Damage, and +5% Flask Potency.',
+          '+18% PS Máx. (+curación), +12% Daño de Parada/Golpe Picado y +5% Potencia de Frasco.',
+        ),
       },
     ];
 
@@ -399,7 +472,7 @@ export class MenuOverlay {
         </div>
         <div class="card-sub" style="color:${d.color}">${d.tag}</div>
         <div class="card-desc" style="flex:1">${d.desc}</div>
-        <button class="gothic-btn small" style="border-color:${d.color}">Absorb ${d.name} [${idx + 1}]</button>
+        <button class="gothic-btn small" style="border-color:${d.color}">${tr('Absorb', 'Absorber')} ${d.name} [${idx + 1}]</button>
       `;
       card.querySelector('button')?.addEventListener('click', () => this.cb.onSelectScroll(d.stat));
       grid.appendChild(card);
@@ -410,33 +483,34 @@ export class MenuOverlay {
   private buildMerchantModal(gold: number, hp: number, maxHp: number): HTMLElement {
     const panel = document.createElement('div');
     panel.className = 'gothic-panel';
+    const goldWord = tr('GOLD', 'ORO');
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Hooded Peddler</div>
-          <div class="card-sub">"Coin buys steel, pilgrim... and survival."</div>
+          <div class="panel-title">${tr('Hooded Peddler', 'Mercader Encapuchado')}</div>
+          <div class="card-sub">${tr('"Coin buys steel, pilgrim... and survival."', '"El oro compra acero, peregrino... y supervivencia."')}</div>
         </div>
-        <div class="gold-pill">GOLD: ${gold}</div>
+        <div class="gold-pill">${goldWord}: ${gold}</div>
       </div>
       <div class="grid-3">
         <div class="card">
-          <div class="card-title"><span>Blood Draught</span><span class="tag" style="color:var(--text-emerald)">25 GOLD</span></div>
-          <div class="card-desc">Restore 60% of your Max HP (${Math.round(hp)}/${maxHp}).</div>
-          <button class="gothic-btn small" data-buy="heal" ${gold >= 25 && hp < maxHp ? '' : 'disabled'}>Buy Draught</button>
+          <div class="card-title"><span>${tr('Blood Draught', 'Brebaje de Sangre')}</span><span class="tag" style="color:var(--text-emerald)">25 ${goldWord}</span></div>
+          <div class="card-desc">${tr('Restore 60% of your Max HP', 'Restaura el 60% de tus PS Máx.')} (${Math.round(hp)}/${maxHp}).</div>
+          <button class="gothic-btn small" data-buy="heal" ${gold >= 25 && hp < maxHp ? '' : 'disabled'}>${tr('Buy Draught', 'Comprar Brebaje')}</button>
         </div>
         <div class="card">
-          <div class="card-title"><span>Whetstone Rune</span><span class="tag" style="color:var(--text-gold)">45 GOLD</span></div>
-          <div class="card-desc">Permanently temper your weapon for +20% damage this run.</div>
-          <button class="gothic-btn primary small" data-buy="weapon" ${gold >= 45 ? '' : 'disabled'}>Forge Edge</button>
+          <div class="card-title"><span>${tr('Whetstone Rune', 'Runa de Afilar')}</span><span class="tag" style="color:var(--text-gold)">45 ${goldWord}</span></div>
+          <div class="card-desc">${tr('Permanently temper your weapon for +20% damage this run.', 'Templa tu arma para +20% de daño durante esta incursión.')}</div>
+          <button class="gothic-btn primary small" data-buy="weapon" ${gold >= 45 ? '' : 'disabled'}>${tr('Forge Edge', 'Templar Filo')}</button>
         </div>
         <div class="card">
-          <div class="card-title"><span>Relic Casket</span><span class="tag" style="color:var(--text-soul)">60 GOLD</span></div>
-          <div class="card-desc">Unseal a cursed casket containing a choice of 3 Relics.</div>
-          <button class="gothic-btn soul small" data-buy="relic" ${gold >= 60 ? '' : 'disabled'}>Open Casket</button>
+          <div class="card-title"><span>${tr('Relic Casket', 'Cofre de Reliquia')}</span><span class="tag" style="color:var(--text-soul)">60 ${goldWord}</span></div>
+          <div class="card-desc">${tr('Unseal a cursed casket containing a choice of 3 Relics.', 'Abre un cofre maldito con una elección de 3 Reliquias.')}</div>
+          <button class="gothic-btn soul small" data-buy="relic" ${gold >= 60 ? '' : 'disabled'}>${tr('Open Casket', 'Abrir Cofre')}</button>
         </div>
       </div>
       <div style="margin-top:16px; display:flex; justify-content:flex-end;">
-        <button class="gothic-btn" data-action="close">Leave Merchant</button>
+        <button class="gothic-btn" data-action="close">${tr('Leave Merchant', 'Salir')}</button>
       </div>
     `;
     panel.querySelector('[data-buy="heal"]')?.addEventListener('click', () => this.cb.onBuyMerchant('heal'));
@@ -457,46 +531,51 @@ export class MenuOverlay {
 
     const relics = stats?.relics ?? [];
     const synergies = getActiveSynergies(relics);
+    const lang = this.meta.data.language;
 
     const relicListHtml =
       relics.length === 0
-        ? '<div class="card-desc">No Relics bound in this run yet.</div>'
+        ? `<div class="card-desc">${tr('No Relics bound in this run yet.', 'Aún no hay Reliquias equipadas en esta incursión.')}</div>`
         : relics
             .map((id) => {
-              const r = RELICS[id];
+              const r = locRelic(RELICS[id]);
               return `<div class="skill-box" style="border-left-color:${r.iconColor}"><strong style="color:${r.iconColor}">${r.name}</strong> (${r.shortTag}): ${r.description}</div>`;
             })
             .join('');
 
     const synHtml = synergies
-      .map(
-        (s) =>
-          `<div class="skill-box" style="border-left-color:${s.color}; background:rgba(36,28,58,0.85)"><strong style="color:${s.color}">${s.name}</strong> — ${s.description}</div>`,
-      )
+      .map((rawSyn) => {
+        const s = locSynergy(rawSyn);
+        return `<div class="skill-box" style="border-left-color:${s.color}; background:rgba(36,28,58,0.85)"><strong style="color:${s.color}">${s.name}</strong> — ${s.description}</div>`;
+      })
       .join('');
 
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Game Paused</div>
-          <div class="card-sub">Relic Arsenal, Synergies & Audio Controls</div>
+          <div class="panel-title">${tr('Game Paused', 'Juego en Pausa')}</div>
+          <div class="card-sub">${tr('Relic Arsenal, Synergies & Audio Controls', 'Arsenal de Reliquias, Sinergias, Idioma y Audio')}</div>
         </div>
-        <button class="gothic-btn primary small" data-action="resume">Resume</button>
+        <button class="gothic-btn primary small" data-action="resume">${tr('Resume', 'Reanudar')}</button>
       </div>
       <div class="grid-2" style="margin-bottom:14px;">
         <div class="card">
-          <div class="card-title"><span>Audio Mixer</span></div>
-          <label class="stat-row"><span>Music Volume</span><span id="mus-val">${Math.round(musicVol * 100)}%</span></label>
+          <div class="card-title"><span>${tr('Audio & Language', 'Audio e Idioma')}</span></div>
+          <label class="stat-row"><span>${tr('Music Volume', 'Volumen Música')}</span><span id="mus-val">${Math.round(musicVol * 100)}%</span></label>
           <input type="range" min="0" max="100" value="${Math.round(musicVol * 100)}" id="mus-slider" style="width:100%" />
-          <label class="stat-row"><span>SFX Volume</span><span id="sfx-val">${Math.round(sfxVol * 100)}%</span></label>
+          <label class="stat-row"><span>${tr('SFX Volume', 'Volumen Efectos')}</span><span id="sfx-val">${Math.round(sfxVol * 100)}%</span></label>
           <input type="range" min="0" max="100" value="${Math.round(sfxVol * 100)}" id="sfx-slider" style="width:100%" />
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <button class="gothic-btn small ${lang === 'en' ? 'active-tab' : ''}" data-lang="en">English</button>
+            <button class="gothic-btn small ${lang === 'es' ? 'active-tab' : ''}" data-lang="es">Español</button>
+          </div>
         </div>
         <div class="card">
-          <div class="card-title"><span>Active Build</span></div>
-          <div class="stat-row"><span>Brutality Scrolls</span><span style="color:#ff6b7a">${stats?.scrolls.brutality ?? 0}</span></div>
-          <div class="stat-row"><span>Tactics Scrolls</span><span style="color:#ba82ed">${stats?.scrolls.tactics ?? 0}</span></div>
-          <div class="stat-row"><span>Survival Scrolls</span><span style="color:#67d487">${stats?.scrolls.survival ?? 0}</span></div>
-          <div class="stat-row"><span>Max Killstreak</span><span style="color:var(--text-gold)">${stats?.maxKillstreak ?? 0}</span></div>
+          <div class="card-title"><span>${tr('Active Build', 'Configuración Actual')}</span></div>
+          <div class="stat-row"><span>${tr('Brutality Scrolls', 'Pergaminos Brutalidad')}</span><span style="color:#ff6b7a">${stats?.scrolls.brutality ?? 0}</span></div>
+          <div class="stat-row"><span>${tr('Tactics Scrolls', 'Pergaminos Táctica')}</span><span style="color:#ba82ed">${stats?.scrolls.tactics ?? 0}</span></div>
+          <div class="stat-row"><span>${tr('Survival Scrolls', 'Pergaminos Supervivencia')}</span><span style="color:#67d487">${stats?.scrolls.survival ?? 0}</span></div>
+          <div class="stat-row"><span>${tr('Max Killstreak', 'Racha Máxima')}</span><span style="color:var(--text-gold)">${stats?.maxKillstreak ?? 0}</span></div>
         </div>
       </div>
       ${synHtml ? `<div style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">${synHtml}</div>` : ''}
@@ -504,10 +583,10 @@ export class MenuOverlay {
         ${relicListHtml}
       </div>
       <div class="grid-2">
-        <button class="gothic-btn small" data-action="controls">Controls</button>
-        <button class="gothic-btn small" data-action="codex">Heroes & Bestiary Codex</button>
-        <button class="gothic-btn small" data-action="deeds">Book of Deeds</button>
-        <button class="gothic-btn soul small" data-action="sanctuary">Return to Sanctuary</button>
+        <button class="gothic-btn small" data-action="controls">${tr('Controls', 'Controles')}</button>
+        <button class="gothic-btn small" data-action="codex">${tr('Heroes & Bestiary Codex', 'Códice y Bestiario')}</button>
+        <button class="gothic-btn small" data-action="deeds">${tr('Book of Deeds', 'Libro de Hazañas')}</button>
+        <button class="gothic-btn soul small" data-action="sanctuary">${tr('Return to Sanctuary', 'Volver al Santuario')}</button>
       </div>
     `;
 
@@ -526,6 +605,11 @@ export class MenuOverlay {
       this.cb.onVolumeChange('sfx', val);
     });
 
+    panel.querySelectorAll('[data-lang]').forEach((btn) =>
+      btn.addEventListener('click', () =>
+        this.cb.onSelectLanguage((btn as HTMLElement).dataset.lang as Language),
+      ),
+    );
     panel.querySelector('[data-action="resume"]')?.addEventListener('click', () => this.cb.onResume());
     panel.querySelector('[data-action="controls"]')?.addEventListener('click', () => this.cb.onOpenScreen('controls'));
     panel.querySelector('[data-action="codex"]')?.addEventListener('click', () => this.cb.onOpenScreen('codex'));
@@ -543,24 +627,24 @@ export class MenuOverlay {
 
     box.innerHTML = `
       <div class="panel-title" style="color:${isVictory ? 'var(--text-gold)' : 'var(--text-crimson)'}">
-        ${isVictory ? 'Sovereign Vanquished' : 'Vessel Shattered'}
+        ${isVictory ? tr('Sovereign Vanquished', 'Soberano Derrotado') : tr('Vessel Shattered', 'Recipiente Quebrado')}
       </div>
       <div class="card-sub">${
         isVictory
-          ? 'The Obsidian Citadel bows before your blade!'
-          : "Death's Bargain preserves a spark of your harvested Souls."
+          ? tr('The Obsidian Citadel bows before your blade!', '¡La Ciudadela de Obsidiana se inclina ante tu filo!')
+          : tr("Death's Bargain preserves a spark of your harvested Souls.", 'El Pacto con la Muerte preserva una chispa de tus Almas cosechadas.')
       }</div>
       <div class="summary-stats" style="width:100%">
-        <div>Monsters Slain:</div><div style="color:var(--text-gold)">${stats?.kills ?? 0}</div>
-        <div>Best Killstreak:</div><div style="color:var(--text-gold)">${stats?.maxKillstreak ?? 0}x</div>
-        <div>Relics Bound:</div><div style="color:var(--text-gold)">${stats?.relics.length ?? 0}</div>
-        <div>Run Time:</div><div>${Math.round(stats?.timeSeconds ?? 0)}s</div>
-        <div>Souls Saved:</div><div style="color:var(--text-soul)">+${totalEarned}</div>
-        <div>Total Banked:</div><div style="color:var(--text-soul)">${this.meta.data.souls}</div>
+        <div>${tr('Monsters Slain', 'Monstruos Abatidos')}:</div><div style="color:var(--text-gold)">${stats?.kills ?? 0}</div>
+        <div>${tr('Best Killstreak', 'Mejor Racha')}:</div><div style="color:var(--text-gold)">${stats?.maxKillstreak ?? 0}x</div>
+        <div>${tr('Relics Bound', 'Reliquias')}:</div><div style="color:var(--text-gold)">${stats?.relics.length ?? 0}</div>
+        <div>${tr('Run Time', 'Tiempo')}:</div><div>${Math.round(stats?.timeSeconds ?? 0)}s</div>
+        <div>${tr('Souls Saved', 'Almas Salvadas')}:</div><div style="color:var(--text-soul)">+${totalEarned}</div>
+        <div>${tr('Total Banked', 'Total Guardado')}:</div><div style="color:var(--text-soul)">${this.meta.data.souls}</div>
       </div>
       <div class="btn-stack">
-        <button class="gothic-btn soul" data-action="sanctuary">Return to Sanctuary (Spend Souls)</button>
-        <button class="gothic-btn primary" data-action="retry">Descend Again Immediately</button>
+        <button class="gothic-btn soul" data-action="sanctuary">${tr('Return to Sanctuary (Spend Souls)', 'Volver al Santuario (Gastar Almas)')}</button>
+        <button class="gothic-btn primary" data-action="retry">${tr('Descend Again Immediately', 'Descender de Nuevo')}</button>
       </div>
     `;
     box.querySelector('[data-action="sanctuary"]')?.addEventListener('click', () => this.cb.onReturnSanctuary());
@@ -576,16 +660,17 @@ export class MenuOverlay {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Book of Deeds</div>
-          <div class="card-sub">Unlocked ${earned.size}/${ACHIEVEMENT_LIST.length} Eternal Feats</div>
+          <div class="panel-title">${tr('Book of Deeds', 'Libro de Hazañas')}</div>
+          <div class="card-sub">${tr('Unlocked', 'Desbloqueadas')} ${earned.size}/${ACHIEVEMENT_LIST.length} ${tr('Eternal Feats', 'Hazañas Eternas')}</div>
         </div>
-        <button class="gothic-btn primary small" data-action="back">Back</button>
+        <button class="gothic-btn primary small" data-action="back">${tr('Back', 'Volver')}</button>
       </div>
       <div class="grid-2" id="deeds-grid"></div>
     `;
 
     const grid = panel.querySelector('#deeds-grid')!;
-    for (const ach of ACHIEVEMENT_LIST) {
+    for (const rawAch of ACHIEVEMENT_LIST) {
+      const ach = locAchievement(rawAch);
       const done = earned.has(ach.id);
       const card = document.createElement('div');
       card.className = `card ${done ? 'selected' : ''}`;
@@ -594,7 +679,7 @@ export class MenuOverlay {
         <div class="card-title">
           <span style="color:${done ? ach.iconColor : 'var(--text-muted)'}">${ach.name}</span>
           <span class="tag" style="color:${done ? 'var(--text-soul)' : 'var(--text-muted)'}">
-            ${done ? 'CLAIMED' : `+${ach.soulReward} SOULS`}
+            ${done ? tr('CLAIMED', 'RECLAMADA') : `+${ach.soulReward} ${tr('SOULS', 'ALMAS')}`}
           </span>
         </div>
         <div class="card-desc">${ach.description}</div>
@@ -612,7 +697,7 @@ export class MenuOverlay {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Heroes & Bestiary Codex</div>
+          <div class="panel-title">${tr('Heroes & Bestiary Codex', 'Códice de Héroes y Bestiario')}</div>
           <div class="card-sub">Live Pixel-Art Animation Showcase (6 Heroes &bull; 13 Monsters & Bosses &bull; 20 Relics)</div>
         </div>
         <button class="gothic-btn small primary" data-action="back">Back</button>
@@ -639,7 +724,8 @@ export class MenuOverlay {
     const grid = panel.querySelector('#codex-grid')!;
 
     if (this.codexFilter === 'relics') {
-      for (const r of RELIC_LIST) {
+      for (const rawRelic of RELIC_LIST) {
+        const r = locRelic(rawRelic);
         const card = document.createElement('div');
         card.className = `card rarity-${r.rarity}`;
         const iconCanvas = document.createElement('canvas');
@@ -654,7 +740,7 @@ export class MenuOverlay {
           <div class="card-title" style="gap:8px; justify-content:flex-start;">
             <span style="color:${r.iconColor}; flex:1">${r.name}</span>${tagPills}
           </div>
-          <div class="card-sub">${r.rarity} &bull; ${r.shortTag}</div>
+          <div class="card-sub">${locRarity(r.rarity)} &bull; ${r.shortTag}</div>
           <div class="card-desc">${r.description}</div>
         `;
         card.querySelector('.card-title')?.prepend(iconCanvas);
@@ -663,7 +749,8 @@ export class MenuOverlay {
     }
 
     if (this.codexFilter === 'all' || this.codexFilter === 'heroes') {
-      for (const h of CHARACTER_LIST) {
+      for (const rawH of CHARACTER_LIST) {
+        const h = locHero(rawH);
         const heroState: CharacterAnimState =
           this.codexAnimMode === 'move'
             ? 'run'
@@ -705,7 +792,8 @@ export class MenuOverlay {
     }
 
     if (this.codexFilter === 'all' || this.codexFilter === 'monsters') {
-      for (const e of ENEMY_LIST) {
+      for (const rawE of ENEMY_LIST) {
+        const e = locEnemy(rawE);
         const enemyState: EnemyAnimState =
           this.codexAnimMode === 'dive_slam'
             ? 'attack'
@@ -727,9 +815,9 @@ export class MenuOverlay {
         card.innerHTML = `
           <div class="card-title">
             <span>${e.name}</span>
-            <span class="tag" style="color:${e.accentColor}">${e.isBoss ? 'BOSS' : 'MONSTER'}</span>
+            <span class="tag" style="color:${e.accentColor}">${e.isBoss ? tr('BOSS', 'JEFE') : tr('MONSTER', 'MONSTRUO')}</span>
           </div>
-          <div class="card-sub">HP ${e.maxHp} &bull; DMG ${e.damage}</div>
+          <div class="card-sub">${tr('HP', 'PS')} ${e.maxHp} &bull; ${tr('DMG', 'DAÑO')} ${e.damage}</div>
         `;
         card.appendChild(box);
         const desc = document.createElement('div');
@@ -762,29 +850,26 @@ export class MenuOverlay {
     panel.innerHTML = `
       <div class="panel-header">
         <div>
-          <div class="panel-title">Controls & Combat Mechanics</div>
-          <div class="card-sub">Keyboard, Mouse & Gamepad Support</div>
+          <div class="panel-title">${tr('Controls & Combat Mechanics', 'Controles y Mecánicas de Combate')}</div>
+          <div class="card-sub">${tr('Keyboard, Mouse & Gamepad Support', 'Soporte de Teclado, Ratón y Mando')}</div>
         </div>
-        <button class="gothic-btn primary small" data-action="back">Back</button>
+        <button class="gothic-btn primary small" data-action="back">${tr('Back', 'Volver')}</button>
       </div>
       <div class="controls-grid">
-        <div class="control-item"><span>Move Left / Right</span><span class="kbd">A / D or Left Stick</span></div>
-        <div class="control-item"><span>Jump / Double Jump / Wall Jump</span><span class="kbd">Space / W / [A]</span></div>
-        <div class="control-item"><span>Drop Through Platform</span><span class="kbd">S + Space</span></div>
-        <div class="control-item"><span>3-Hit Combo Attack</span><span class="kbd">J / Click / [X]</span></div>
-        <div class="control-item"><span>Air Dive Slam</span><span class="kbd">S + Attack (Mid-Air)</span></div>
-        <div class="control-item"><span>Dodge Roll (i-frames)</span><span class="kbd">Shift / R-Click / [B]</span></div>
-        <div class="control-item"><span>Hero Skill 1</span><span class="kbd">Q / U / [LB]</span></div>
-        <div class="control-item"><span>Hero Skill 2</span><span class="kbd">E / I / [Y]</span></div>
-        <div class="control-item"><span>Soul Overdrive (at 100%)</span><span class="kbd">V / L / M-Click</span></div>
-        <div class="control-item"><span>Drink Healing Flask</span><span class="kbd">R / H / [LT]</span></div>
-        <div class="control-item"><span>Interact (Altar / Chest / Portal)</span><span class="kbd">F / Up</span></div>
-        <div class="control-item"><span>Waystone Fast-Travel</span><span class="kbd">Tab</span></div>
-        <div class="control-item"><span>Pause / Resume</span><span class="kbd">Esc / Start</span></div>
-        <div class="control-item"><span>Toggle Audio Mute</span><span class="kbd">M</span></div>
-      </div>
-      <div style="margin-top:14px;" class="card-desc">
-        <strong>V2 Tip:</strong> Pair matching Relics to unlock <em>Relic Synergies</em>, absorb <em>Trinity Scrolls</em> to scale your build, and unleash <strong>Soul Overdrive [V]</strong> when your Soul Surge hits 100%!
+        <div class="control-item"><span>${tr('Move Left / Right', 'Mover Izquierda / Derecha')}</span><span class="kbd">A / D</span></div>
+        <div class="control-item"><span>${tr('Jump / Double Jump / Wall Jump', 'Salto / Doble Salto / Salto en Pared')}</span><span class="kbd">Space / W</span></div>
+        <div class="control-item"><span>${tr('Drop Through Platform', 'Bajar de Plataforma')}</span><span class="kbd">S</span></div>
+        <div class="control-item"><span>${tr('3-Hit Combo Attack', 'Combo de 3 Golpes')}</span><span class="kbd">J / Click</span></div>
+        <div class="control-item"><span>${tr('Air Dive Slam', 'Golpe Picado Aéreo')}</span><span class="kbd">S + J</span></div>
+        <div class="control-item"><span>${tr('Dodge Roll (with air gravity)', 'Rodar / Esquivar (con gravedad aérea)')}</span><span class="kbd">Shift / R-Click</span></div>
+        <div class="control-item"><span>${tr('Hero Skill 1', 'Habilidad 1')}</span><span class="kbd">Q / U</span></div>
+        <div class="control-item"><span>${tr('Hero Skill 2', 'Habilidad 2')}</span><span class="kbd">E / I</span></div>
+        <div class="control-item"><span>${tr('Soul Overdrive (at 100%)', 'Sobrecarga de Alma (al 100%)')}</span><span class="kbd">V / L</span></div>
+        <div class="control-item"><span>${tr('Drink Healing Flask', 'Beber Frasco Curativo')}</span><span class="kbd">R / H</span></div>
+        <div class="control-item"><span>${tr('Interact (Altar / Chest / Portal)', 'Interactuar (Altar / Cofre / Portal)')}</span><span class="kbd">F / Up</span></div>
+        <div class="control-item"><span>${tr('Waystone Fast-Travel', 'Viaje Rápido Piedra Guía')}</span><span class="kbd">Tab</span></div>
+        <div class="control-item"><span>${tr('Pause / Resume', 'Pausa / Reanudar')}</span><span class="kbd">Esc</span></div>
+        <div class="control-item"><span>${tr('Toggle Audio Mute', 'Silenciar Audio')}</span><span class="kbd">M</span></div>
       </div>
     `;
     panel.querySelector('[data-action="back"]')?.addEventListener('click', () => this.cb.onResume());

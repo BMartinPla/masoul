@@ -61,6 +61,19 @@ export class TileMap {
     return this.getTile(tx, ty) === 3;
   }
 
+  isStandingOnPlatform(rect: Rect): boolean {
+    const eps = 0.01;
+    const leftTx = Math.floor((rect.x + eps) / TILE_SIZE);
+    const rightTx = Math.floor((rect.x + rect.w - eps) / TILE_SIZE);
+    const footTy = Math.floor((rect.y + rect.h + 1) / TILE_SIZE);
+    let hasPlatform = false;
+    for (let tx = leftTx; tx <= rightTx; tx++) {
+      if (this.isSolid(tx, footTy)) return false;
+      if (this.isPlatform(tx, footTy)) hasPlatform = true;
+    }
+    return hasPlatform;
+  }
+
   computeMasks(): void {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {

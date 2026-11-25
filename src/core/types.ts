@@ -48,6 +48,8 @@ export type EnemyAnimState =
 
 export type BiomeId = 'sanctuary' | 'crypt' | 'catacombs' | 'ossuary' | 'citadel';
 
+export type Language = 'en' | 'es';
+
 export type TileType = 0 | 1 | 2 | 3; // 0=empty, 1=solid, 2=one-way platform, 3=spikes
 
 export type RelicId =
@@ -247,6 +249,8 @@ export interface MetaSaveData {
   totalKills: number;
   totalVictories: number;
   bestTimeSeconds: number | null;
+  prestigeLevel: number;
+  language: Language;
 }
 
 export interface RunStats {

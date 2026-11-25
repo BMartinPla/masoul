@@ -140,14 +140,17 @@ export class Player {
     this.x = spawnX;
     this.y = spawnY;
 
-    this.maxHp = this.def.maxHp + metaStats.maxHp;
+    this.maxHp = Math.round((this.def.maxHp + metaStats.maxHp) * metaStats.prestigeStatMult);
     this.hp = this.maxHp;
     this.rallyHp = this.maxHp;
     this.flaskCharges = metaStats.flaskCharges;
     this.maxFlaskCharges = metaStats.flaskCharges;
     this.damageMult = metaStats.damageMult;
     this.moveSpeedMult = metaStats.moveSpeedMult;
-    this.critChance = this.def.critChance + metaStats.critChanceBonus;
+    this.critChance = Math.min(
+      0.95,
+      (this.def.critChance + metaStats.critChanceBonus) * metaStats.prestigeStatMult,
+    );
     this.cooldownRecovery = metaStats.cooldownRecoveryMult;
     this.scrollMasteryMult = metaStats.scrollMasteryMult;
     this.overdriveChargeMult = metaStats.overdriveChargeMult;
@@ -424,7 +427,11 @@ export class Player {
       this.activeAttack = null;
       this.whirlwindTimer = 0;
       this.vx = this.facing * this.def.rollSpeed;
-      this.vy = Math.min(this.vy, 0);
+      if (this.onGround) {
+        this.vy = 0;
+      } else if (this.vy < 35) {
+        this.vy = 35;
+      }
       this.visualScaleX = 1.22;
       this.visualScaleY = 0.80;
       sound.playRoll();
@@ -538,12 +545,18 @@ export class Player {
         }
       }
 
-      // Drop through platform: Down + Jump
-      if (this.onGround && input.isHeld('down') && input.hasBufferedJump()) {
-        input.consumeJumpBuffer();
+      // Drop through one-way platform: Down (S) or Down + Jump
+      if (
+        this.onGround &&
+        tileMap.isStandingOnPlatform(this.getRect()) &&
+        (input.wasPressed('down') || (input.isHeld('down') && input.hasBufferedJump()))
+      ) {
+        if (input.hasBufferedJump()) input.consumeJumpBuffer();
         this.dropThroughTimer = DROP_THROUGH_TIME;
         this.onGround = false;
-        this.y += 2;
+        this.coyoteTimer = 0;
+        this.y += 4;
+        this.vy = Math.max(this.vy, 65);
       } else if (input.hasBufferedJump()) {
         if (this.wallSlideDir !== 0 && !this.onGround) {
           input.consumeJumpBuffer();
@@ -590,12 +603,10 @@ export class Player {
       }
     }
 
-    // Gravity & Wall Slide
-    if (this.rollTimer <= 0) {
-      this.vy = Math.min(MAX_FALL_SPEED, this.vy + GRAVITY * dt);
-      if (this.wallSlideDir !== 0 && this.vy > WALL_SLIDE_SPEED && moveX === this.wallSlideDir) {
-        this.vy = WALL_SLIDE_SPEED;
-      }
+    // Gravity & Wall Slide (gravity always applies, including mid-air roll/dash)
+    this.vy = Math.min(MAX_FALL_SPEED, this.vy + GRAVITY * dt);
+    if (this.rollTimer <= 0 && this.wallSlideDir !== 0 && this.vy > WALL_SLIDE_SPEED && moveX === this.wallSlideDir) {
+      this.vy = WALL_SLIDE_SPEED;
     }
 
     // Tile Collision Step

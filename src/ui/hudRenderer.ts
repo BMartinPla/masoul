@@ -5,6 +5,7 @@ import { RELICS } from '../data/relics.ts';
 import { getGameAssets } from '../art/assets.ts';
 import { HERO_ANCHOR_X, HERO_ANCHOR_Y } from '../art/characterSprites.ts';
 import { drawPixelText, measurePixelText } from '../art/pixelFont.ts';
+import { locBiome, locEnemy, locShortSkill, tr } from '../i18n/translations.ts';
 import type { Enemy } from '../entities/enemy.ts';
 import type { WorldStation } from '../entities/pickup.ts';
 import type { Player } from '../entities/player.ts';
@@ -26,7 +27,8 @@ const SHORT_SKILL_LABELS: Record<string, string> = {
 };
 
 function shortSkillLabel(name: string): string {
-  return SHORT_SKILL_LABELS[name] ?? name.slice(0, 6).toUpperCase();
+  const en = SHORT_SKILL_LABELS[name] ?? name.slice(0, 6).toUpperCase();
+  return locShortSkill(name, en);
 }
 
 export class HudRenderer {
@@ -45,6 +47,7 @@ export class HudRenderer {
     isMuted: boolean,
     killstreak = 0,
     canWarp = false,
+    prestigeLevel = 0,
   ): void {
     // 0. Low-HP Heartbeat Crimson Edge Vignette (<= 30% HP)
     if (player.hp > 0 && player.hp / player.maxHp <= 0.3) {
@@ -127,10 +130,10 @@ export class HudRenderer {
     drawPixelText(ctx, '[R]', 48 + player.maxFlaskCharges * 11, 29, { color: '#9b95b5' });
 
     if (biomeId !== 'sanctuary') {
-      drawPixelText(ctx, `S:${runStats.runSouls}`, 144, 29, { color: '#7ef5eb' });
-      drawPixelText(ctx, `G:${runStats.gold}`, 144, 40, { color: '#ffe082' });
+      drawPixelText(ctx, `${tr('S', 'A')}:${runStats.runSouls}`, 144, 29, { color: '#7ef5eb' });
+      drawPixelText(ctx, `${tr('G', 'O')}:${runStats.gold}`, 144, 40, { color: '#ffe082' });
     } else {
-      drawPixelText(ctx, `SOULS:${bankedSouls}`, 198, 35, { color: '#7ef5eb', align: 'right' });
+      drawPixelText(ctx, `${tr('SOULS', 'ALMAS')}:${bankedSouls}`, 198, 35, { color: '#7ef5eb', align: 'right' });
     }
     drawPixelText(ctx, player.def.name.toUpperCase(), 12, 44, { color: '#ede6d8' });
 
@@ -163,15 +166,20 @@ export class HudRenderer {
     }
 
     // 2. Top-Right Biome Title & Fog-of-War Minimap
-    const biome = BIOMES[biomeId];
+    const biome = locBiome(BIOMES[biomeId]);
     drawPixelText(ctx, biome.name, VIEW_W - 10, 8, {
       color: '#f5ca71',
       align: 'right',
       variant: 'pixel',
     });
     if (runStats.curseTier > 0) {
-      drawPixelText(ctx, `CURSE ${runStats.curseTier}`, VIEW_W - 10, 18, {
+      drawPixelText(ctx, `${tr('CURSE', 'MALDICION')} ${runStats.curseTier}`, VIEW_W - 10, 18, {
         color: '#ff6b7a',
+        align: 'right',
+      });
+    } else if (prestigeLevel > 0) {
+      drawPixelText(ctx, `${tr('PRESTIGE', 'PRESTIGIO')} ${prestigeLevel}`, VIEW_W - 10, 18, {
+        color: '#ffe082',
         align: 'right',
       });
     }
@@ -179,13 +187,13 @@ export class HudRenderer {
     if (biomeId !== 'sanctuary') {
       this.renderMinimap(ctx, tileMap, player, stations);
       if (killstreak >= 3) {
-        drawPixelText(ctx, `${killstreak}X STREAK`, VIEW_W - 10, 74, {
+        drawPixelText(ctx, `${killstreak}X ${tr('STREAK', 'RACHA')}`, VIEW_W - 10, 74, {
           color: killstreak >= 10 ? '#ffe082' : '#ff6b7a',
           align: 'right',
         });
       }
       if (canWarp) {
-        drawPixelText(ctx, '[TAB] WAYSTONE', VIEW_W - 10, killstreak >= 3 ? 84 : 74, {
+        drawPixelText(ctx, `[TAB] ${tr('WAYSTONE', 'PIEDRA')}`, VIEW_W - 10, killstreak >= 3 ? 84 : 74, {
           color: '#7ef5eb',
           align: 'right',
         });
@@ -193,7 +201,7 @@ export class HudRenderer {
     }
 
     if (isMuted) {
-      drawPixelText(ctx, 'MUTED [M]', VIEW_W - 10, VIEW_H - 14, {
+      drawPixelText(ctx, `${tr('MUTED', 'SILENCIO')} [M]`, VIEW_W - 10, VIEW_H - 14, {
         color: '#9b95b5',
         align: 'right',
       });
@@ -225,7 +233,7 @@ export class HudRenderer {
       102,
       VIEW_H - 40,
       'SHF',
-      'ROLL',
+      tr('ROLL', 'RODAR'),
       player.rollCooldown,
       0.42,
       '#cad5ed',
@@ -242,7 +250,8 @@ export class HudRenderer {
       ctx.strokeStyle = activeBoss.phase === 2 ? '#ff6b7a' : '#c99746';
       ctx.strokeRect(bx - 4.5, by - 17.5, bw + 9, 33);
 
-      const title = `${activeBoss.def.name.toUpperCase()}${activeBoss.phase === 2 ? ' [PHASE II]' : ''}`;
+      const bossName = locEnemy(activeBoss.def).name.toUpperCase();
+      const title = `${bossName}${activeBoss.phase === 2 ? ` [${tr('PHASE II', 'FASE II')}]` : ''}`;
       drawPixelText(ctx, title, VIEW_W * 0.5, by - 15, {
         color: activeBoss.phase === 2 ? '#ff6b7a' : '#ffe082',
         align: 'center',
@@ -359,12 +368,12 @@ export class HudRenderer {
     drawPixelText(ctx, 'V', x + 4, y + 5, { color: '#7ef5eb' });
     drawPixelText(
       ctx,
-      player.overdriveTimer > 0 ? 'DRIVE' : ready ? 'READY' : `${Math.floor(player.surge)}%`,
+      player.overdriveTimer > 0 ? tr('DRIVE', 'ACTIVO') : ready ? tr('READY', 'LISTO') : `${Math.floor(player.surge)}%`,
       x + w - 4,
       y + 5,
       { color: ready ? '#ffe082' : '#9b95b5', align: 'right' },
     );
-    drawPixelText(ctx, 'SURGE', x + w * 0.5, y + 24, {
+    drawPixelText(ctx, tr('SURGE', 'ALMA'), x + w * 0.5, y + 24, {
       color: ready ? '#d6fffa' : '#7a7494',
       align: 'center',
     });

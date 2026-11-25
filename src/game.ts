@@ -35,6 +35,7 @@ import { ACHIEVEMENTS, evaluateNewlyEarnedAchievements } from './data/achievemen
 import { BIOMES } from './data/biomes.ts';
 import { CHARACTER_LIST } from './data/characters.ts';
 import { getActiveSynergies, RELIC_LIST, RELICS } from './data/relics.ts';
+import { locBiome, tr } from './i18n/translations.ts';
 import { Enemy } from './entities/enemy.ts';
 import { ParticleSystem } from './entities/particles.ts';
 import {
@@ -133,6 +134,11 @@ export class MasoulGame {
       onSelectScroll: (stat) => this.applyScrollChoice(stat),
       onBuyMerchant: (choice) => this.handleMerchantPurchase(choice),
       onBuyUpgrade: (id) => this.handleBuyUpgrade(id),
+      onPrestige: () => this.handlePrestige(),
+      onSelectLanguage: (lang) => {
+        this.meta.setLanguage(lang);
+        this.openScreen(this.screen);
+      },
       onSelectOrUnlockHero: (id) => this.handleSelectHero(id),
       onReturnSanctuary: () => this.enterSanctuary(),
       onQuickRetry: () => this.startNewRun(),
@@ -1092,6 +1098,21 @@ export class MasoulGame {
     }
   }
 
+  private handlePrestige(): void {
+    if (this.meta.ascendPrestige()) {
+      this.sound.playOverdrive();
+      this.player = new Player(
+        this.meta.data.selectedCharacter,
+        this.player.x,
+        this.player.y,
+        computeEffectiveStats(this.meta.data),
+      );
+      const p = this.meta.data.prestigeLevel;
+      this.showBanner(tr(`PRESTIGE ${p} ASCENDED (+${p * 20}% TOTAL STATS)`, `PRESTIGIO ${p} ALCANZADO (+${p * 20}% ESTADISTICAS)`));
+      this.openScreen('soul_altar');
+    }
+  }
+
   private handleSelectHero(id: CharacterId): void {
     const ok = this.meta.isCharacterUnlocked(id)
       ? this.meta.selectCharacter(id)
@@ -1640,6 +1661,7 @@ export class MasoulGame {
         this.sound.isMuted(),
         this.killstreak,
         canWarp,
+        this.meta.data.prestigeLevel,
       );
     }
   }
@@ -1648,32 +1670,32 @@ export class MasoulGame {
     if (!st) return null;
     switch (st.kind) {
       case 'soul_altar':
-        return '[F] SOUL ALTAR (PERMANENT UPGRADES)';
+        return tr('[F] SOUL ALTAR (PERMANENT UPGRADES)', '[F] ALTAR DE ALMAS (MEJORAS PERMANENTES)');
       case 'hero_pedestal':
-        return '[F] HALL OF HEROES (SWITCH / UNLOCK)';
+        return tr('[F] HALL OF HEROES (SWITCH / UNLOCK)', '[F] SALON DE HEROES (CAMBIAR / DESBLOQUEAR)');
       case 'deeds_lectern':
-        return '[F] BOOK OF DEEDS (ACHIEVEMENTS)';
+        return tr('[F] BOOK OF DEEDS (ACHIEVEMENTS)', '[F] LIBRO DE HAZANAS (LOGROS)');
       case 'curse_brazier':
-        return '[F] CURSE BRAZIER';
+        return tr('[F] CURSE BRAZIER', '[F] BRASERO DE MALDICION');
       case 'dungeon_gate':
-        return '[F] ENTER THE CRYPT';
+        return tr('[F] ENTER THE CRYPT', '[F] ENTRAR A LA CRIPTA');
       case 'chest':
-        return '[F] OPEN CHEST';
+        return tr('[F] OPEN CHEST', '[F] ABRIR COFRE');
       case 'relic_shrine':
-        return '[F] COMMUNE WITH RELIC SHRINE';
+        return tr('[F] COMMUNE WITH RELIC SHRINE', '[F] COMULGAR CON EL SAGRARIO');
       case 'trinity_scroll':
-        return '[F] ABSORB TRINITY SCROLL';
+        return tr('[F] ABSORB TRINITY SCROLL', '[F] ABSORBER PERGAMINO');
       case 'blood_shrine':
-        return '[F] OFFER BLOOD TO SHRINE (-20% HP)';
+        return tr('[F] OFFER BLOOD TO SHRINE (-20% HP)', '[F] OFRENDAR SANGRE (-20% PS)');
       case 'lore_tablet':
-        return '[F] READ ANCIENT INSCRIPTION';
+        return tr('[F] READ ANCIENT INSCRIPTION', '[F] LEER INSCRIPCION ANTIGUA');
       case 'merchant':
-        return '[F] SPEAK WITH PEDDLER';
+        return tr('[F] SPEAK WITH PEDDLER', '[F] HABLAR CON EL MERCADER');
       case 'exit_portal':
-        if (st.locked) return 'PORTAL SEALED BY BOSS';
+        if (st.locked) return tr('PORTAL SEALED BY BOSS', 'PORTAL SELLADO POR EL JEFE');
         return st.targetBiome
-          ? `[F] ENTER ${BIOMES[st.targetBiome].name.toUpperCase()}`
-          : '[F] DESCEND TO NEXT BIOME';
+          ? `[F] ${tr('ENTER', 'ENTRAR A')} ${locBiome(BIOMES[st.targetBiome]).name.toUpperCase()}`
+          : tr('[F] DESCEND TO NEXT BIOME', '[F] DESCENDER AL SIGUIENTE BIOMA');
       default:
         return null;
     }

@@ -6,9 +6,9 @@ A 640×360 Hi-Bit dark-medieval action roguelike inspired by *Dead Cells*, featu
 
 - **Move**: `A` / `D` or `←` / `→`
 - **Jump / Double Jump / Wall-Jump**: `W` / `Space` / `↑`
-- **Drop Through Platform**: `S` + `Space`
+- **Drop Through Platform**: `S` (or `S` + `Space`)
 - **Attack (3-hit combo)**: `J`
-- **Roll / Dodge**: `Shift`
+- **Roll / Dodge (with air gravity)**: `Shift`
 - **Skills**: `Q` / `E`
 - **Soul Overdrive**: `V`
 - **Heal Flask**: `R`

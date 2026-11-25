@@ -2,12 +2,14 @@ import { MAX_CURSE_TIER, SAVE_STORAGE_KEY } from '../core/constants.ts';
 import type {
   AchievementId,
   CharacterId,
+  Language,
   MetaSaveData,
   MetaUpgradeId,
 } from '../core/types.ts';
 import { ACHIEVEMENTS } from '../data/achievements.ts';
 import { CHARACTERS } from '../data/characters.ts';
-import { META_UPGRADES } from '../data/metaUpgrades.ts';
+import { META_UPGRADES, META_UPGRADE_LIST } from '../data/metaUpgrades.ts';
+import { setActiveLanguage } from '../i18n/translations.ts';
 
 export interface EffectiveHeroStats {
   maxHp: number;
@@ -22,6 +24,19 @@ export interface EffectiveHeroStats {
   scrollMasteryMult: number;
   overdriveStartSurge: number;
   overdriveChargeMult: number;
+  prestigeLevel: number;
+  prestigeStatMult: number;
+}
+
+export function detectDefaultLanguage(): Language {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('es')) {
+      return 'es';
+    }
+  } catch {
+    // Ignore environment access issues
+  }
+  return 'en';
 }
 
 export function createDefaultSave(): MetaSaveData {
@@ -48,29 +63,47 @@ export function createDefaultSave(): MetaSaveData {
     totalKills: 0,
     totalVictories: 0,
     bestTimeSeconds: null,
+    prestigeLevel: 0,
+    language: detectDefaultLanguage(),
   };
 }
 
 export function getUpgradeCost(id: MetaUpgradeId, currentRank: number): number {
   const def = META_UPGRADES[id];
-  return def.baseCost + currentRank * def.costStep;
+  return Math.round((def.baseCost + currentRank * def.costStep) * 1.5);
+}
+
+export function countMaxedUpgrades(save: MetaSaveData): number {
+  let count = 0;
+  for (const up of META_UPGRADE_LIST) {
+    if ((save.upgrades[up.id] ?? 0) >= up.maxRank) count += 1;
+  }
+  return count;
+}
+
+export function areAllUpgradesMaxed(save: MetaSaveData): boolean {
+  return META_UPGRADE_LIST.every((up) => (save.upgrades[up.id] ?? 0) >= up.maxRank);
 }
 
 export function computeEffectiveStats(save: MetaSaveData): EffectiveHeroStats {
   const u = save.upgrades;
+  const prestigeLevel = Math.max(0, save.prestigeLevel ?? 0);
+  const prestigeStatMult = 1 + prestigeLevel * 0.2;
   return {
     maxHp: u.vitality * 15,
-    damageMult: 1 + u.might * 0.08,
-    moveSpeedMult: 1 + u.swiftness * 0.05,
+    damageMult: (1 + u.might * 0.08) * prestigeStatMult,
+    moveSpeedMult: Math.min(2.2, (1 + u.swiftness * 0.05) * prestigeStatMult),
     critChanceBonus: u.executioners_luck * 0.04,
     flaskCharges: 2 + u.alchemist,
-    soulDropMult: 1 + u.soul_magnet * 0.12,
+    soulDropMult: (1 + u.soul_magnet * 0.12) * prestigeStatMult,
     soulMagnetRadius: 56 + u.soul_magnet * 18,
     deathRetentionRate: Math.min(0.9, 0.25 + u.deaths_bargain * 0.15),
-    cooldownRecoveryMult: 1 + u.shadow_grace * 0.06,
+    cooldownRecoveryMult: (1 + u.shadow_grace * 0.06) * prestigeStatMult,
     scrollMasteryMult: 1 + (u.scroll_mastery ?? 0) * 0.2,
     overdriveStartSurge: (u.overdrive_vessel ?? 0) * 15,
-    overdriveChargeMult: 1 + (u.overdrive_vessel ?? 0) * 0.15,
+    overdriveChargeMult: (1 + (u.overdrive_vessel ?? 0) * 0.15) * prestigeStatMult,
+    prestigeLevel,
+    prestigeStatMult,
   };
 }
 
@@ -85,6 +118,7 @@ export class MetaProgressionManager {
 
   constructor(private readonly storage: Pick<Storage, 'getItem' | 'setItem'> | null = getBrowserStorage()) {
     this.data = this.load();
+    setActiveLanguage(this.data.language);
   }
 
   private load(): MetaSaveData {
@@ -103,6 +137,8 @@ export class MetaProgressionManager {
           Array.isArray(parsed.unlockedCharacters) && parsed.unlockedCharacters.length > 0
             ? parsed.unlockedCharacters
             : base.unlockedCharacters,
+        prestigeLevel: typeof parsed.prestigeLevel === 'number' ? Math.max(0, parsed.prestigeLevel) : 0,
+        language: parsed.language === 'es' || parsed.language === 'en' ? parsed.language : base.language,
       };
     } catch {
       return createDefaultSave();
@@ -146,6 +182,26 @@ export class MetaProgressionManager {
     this.data.upgrades[id] = rank + 1;
     this.save();
     return true;
+  }
+
+  canPrestige(): boolean {
+    return areAllUpgradesMaxed(this.data);
+  }
+
+  ascendPrestige(): boolean {
+    if (!this.canPrestige()) return false;
+    this.data.prestigeLevel = (this.data.prestigeLevel ?? 0) + 1;
+    for (const up of META_UPGRADE_LIST) {
+      this.data.upgrades[up.id] = 0;
+    }
+    this.save();
+    return true;
+  }
+
+  setLanguage(lang: Language): void {
+    this.data.language = lang;
+    setActiveLanguage(lang);
+    this.save();
   }
 
   isCharacterUnlocked(id: CharacterId): boolean {

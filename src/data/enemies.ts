@@ -1,6 +1,16 @@
 import type { EnemyDef, EnemyId } from '../core/types.ts';
 
-export const ENEMIES: Record<EnemyId, EnemyDef> = {
+function scaleEnemyDifficulty(def: EnemyDef): EnemyDef {
+  return {
+    ...def,
+    maxHp: Math.round(def.maxHp * 1.3),
+    damage: Math.round(def.damage * 1.3),
+    speed: Math.round(def.speed * 1.08),
+    attackCooldown: Number((def.attackCooldown / 1.15).toFixed(2)),
+  };
+}
+
+const BASE_ENEMIES: Record<EnemyId, EnemyDef> = {
   skeleton: {
     id: 'skeleton',
     name: 'Risen Skeleton',
@@ -302,6 +312,22 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     goldDrop: 150,
     accentColor: '#ff6b7a',
   },
+};
+
+export const ENEMIES: Record<EnemyId, EnemyDef> = {
+  skeleton: scaleEnemyDifficulty(BASE_ENEMIES.skeleton),
+  crossbowman: scaleEnemyDifficulty(BASE_ENEMIES.crossbowman),
+  ghoul: scaleEnemyDifficulty(BASE_ENEMIES.ghoul),
+  plague_rat: scaleEnemyDifficulty(BASE_ENEMIES.plague_rat),
+  gargoyle: scaleEnemyDifficulty(BASE_ENEMIES.gargoyle),
+  frost_wraith: scaleEnemyDifficulty(BASE_ENEMIES.frost_wraith),
+  dark_knight: scaleEnemyDifficulty(BASE_ENEMIES.dark_knight),
+  cultist: scaleEnemyDifficulty(BASE_ENEMIES.cultist),
+  brute: scaleEnemyDifficulty(BASE_ENEMIES.brute),
+  mimic: scaleEnemyDifficulty(BASE_ENEMIES.mimic),
+  boss_inquisitor: scaleEnemyDifficulty(BASE_ENEMIES.boss_inquisitor),
+  boss_warden: scaleEnemyDifficulty(BASE_ENEMIES.boss_warden),
+  boss_sovereign: scaleEnemyDifficulty(BASE_ENEMIES.boss_sovereign),
 };
 
 export const ENEMY_LIST: readonly EnemyDef[] = [
