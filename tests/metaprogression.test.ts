@@ -54,10 +54,10 @@ describe('MetaProgressionManager, Heroes, Upgrades & Deeds (V2)', () => {
 
   it('unlocks all new heroes including templar and necromancer when Souls suffice', () => {
     const mgr = new MetaProgressionManager(createMemoryStorage());
-    mgr.addSouls(60);
-    expect(mgr.unlockCharacter('templar')).toBe(false); // costs 65
+    mgr.addSouls(350);
+    expect(mgr.unlockCharacter('templar')).toBe(false); // costs 390 (+500%)
 
-    mgr.addSouls(130);
+    mgr.addSouls(800);
     expect(mgr.unlockCharacter('templar')).toBe(true);
     expect(mgr.unlockCharacter('necromancer')).toBe(true);
     expect(mgr.data.selectedCharacter).toBe('necromancer');
