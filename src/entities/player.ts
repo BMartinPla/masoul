@@ -59,6 +59,8 @@ export class Player {
   coyoteTimer = 0;
   jumpsUsed = 0;
   dropThroughTimer = 0;
+  private runDustTimer = 0;
+  private wallDustTimer = 0;
 
   // Health & resources
   maxHp: number;
@@ -364,7 +366,7 @@ export class Player {
         this.afterimageTimer = 0.08;
         const anim = assets.characters[this.id][this.animState];
         const frame = getAnimationFrame(anim, this.animTime, this.facing);
-        particles.addAfterimage(frame, this.x, this.y, HERO_ANCHOR_X, HERO_ANCHOR_Y, 0.14);
+        particles.addAfterimage(frame, this.x, this.y, HERO_ANCHOR_X, HERO_ANCHOR_Y, 0.14, '#7ef5eb');
       }
     } else if (allowCombat && input.wasPressed('overdrive') && this.surge >= 100) {
       this.surge = 100;
@@ -441,7 +443,7 @@ export class Player {
     // Skill 1 & Skill 2
     if (allowCombat && this.rollTimer <= 0 && this.whirlwindTimer <= 0) {
       if (input.wasPressed('skill1') && this.skill1Cooldown <= 0) {
-        this.executeSkill1(moveX, projectiles, particles, sound, enemiesForTargeting);
+        this.executeSkill1(moveX, projectiles, particles, sound, assets, enemiesForTargeting);
       } else if (input.wasPressed('skill2') && this.skill2Cooldown <= 0) {
         this.executeSkill2(projectiles, particles, sound);
       }
@@ -474,7 +476,15 @@ export class Player {
       if (this.afterimageTimer <= 0) {
         this.afterimageTimer = 0.045;
         const frame = getAnimationFrame(assets.characters[this.id].roll, this.animTime, this.facing);
-        particles.addAfterimage(frame, this.x, this.y, HERO_ANCHOR_X, HERO_ANCHOR_Y, 0.16);
+        particles.addAfterimage(
+          frame,
+          this.x,
+          this.y,
+          HERO_ANCHOR_X,
+          HERO_ANCHOR_Y,
+          0.16,
+          this.overdriveTimer > 0 ? '#7ef5eb' : this.def.accentColor,
+        );
       }
     } else {
       // Normal Attack / Dive Slam
@@ -701,6 +711,53 @@ export class Player {
       this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
     }
 
+    // Grounded footstep dust & wall-slide friction sparks
+    if (this.onGround && Math.abs(this.vx) > 65 && this.rollTimer <= 0) {
+      this.runDustTimer -= dt;
+      if (this.runDustTimer <= 0) {
+        this.runDustTimer = 0.19;
+        particles.spawnTrailMote(
+          this.x - this.facing * 4,
+          this.y - 1,
+          -this.facing * (18 + Math.random() * 20),
+          -12 - Math.random() * 14,
+          '#9a96b8',
+          1,
+          0.24,
+          35,
+        );
+      }
+    } else {
+      this.runDustTimer = 0.04;
+    }
+
+    if (!this.onGround && this.wallSlideDir !== 0 && this.vy > 20) {
+      this.wallDustTimer -= dt;
+      if (this.wallDustTimer <= 0) {
+        this.wallDustTimer = 0.09;
+        particles.spawnTrailMote(
+          this.x + this.wallSlideDir * 6,
+          this.y - 12,
+          -this.wallSlideDir * 14,
+          -18,
+          '#ffe082',
+          1,
+          0.18,
+          60,
+        );
+        particles.spawnTrailMote(
+          this.x + this.wallSlideDir * 5,
+          this.y - 8,
+          -this.wallSlideDir * 10,
+          -8,
+          '#9a96b8',
+          1,
+          0.24,
+          20,
+        );
+      }
+    }
+
     this.updateAnimationState();
   }
 
@@ -746,6 +803,7 @@ export class Player {
     projectiles: Projectile[],
     particles: ParticleSystem,
     sound: SoundEngine,
+    assets: GameAssets,
     enemies: ReadonlyArray<{ x: number; y: number; hp: number }>,
   ): void {
     if (moveX !== 0) this.facing = moveX;
@@ -758,6 +816,8 @@ export class Player {
       sound.playBlock();
       particles.spawnBurst(this.x + this.facing * 8, this.y - 14, 6, ['#ffe082', '#cad5ed'], 20, 60, 0, 2);
     } else if (this.id === 'rogue') {
+      const depFrame = getAnimationFrame(assets.characters[this.id].skill1, 0, this.facing);
+      particles.addAfterimage(depFrame, this.x, this.y, HERO_ANCHOR_X, HERO_ANCHOR_Y, 0.28, '#7ef5eb');
       let best: { x: number; y: number; hp: number } | null = null;
       let bestDist = 145;
       for (const e of enemies) {

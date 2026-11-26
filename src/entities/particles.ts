@@ -54,6 +54,7 @@ interface Afterimage {
   anchorY: number;
   life: number;
   maxLife: number;
+  tintColor?: string;
 }
 
 interface FloatingText {
@@ -89,6 +90,7 @@ export class ParticleSystem {
   private stains: BloodStain[] = [];
   private shockwaves: ShockwaveRing[] = [];
   private sparks: SlashSpark[] = [];
+  private tintCache = new WeakMap<HTMLCanvasElement, Map<string, HTMLCanvasElement>>();
   private motes: Array<{ x: number; y: number; vx: number; vy: number; phase: number }> = [];
 
   constructor() {
@@ -231,6 +233,30 @@ export class ParticleSystem {
     }
   }
 
+  spawnTrailMote(
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    color: string,
+    size = 1,
+    life = 0.22,
+    gravity = 0,
+  ): void {
+    this.particles.push({
+      x,
+      y,
+      vx,
+      vy,
+      size,
+      color,
+      life,
+      maxLife: life,
+      gravity,
+      fade: true,
+    });
+  }
+
   addAfterimage(
     canvas: HTMLCanvasElement,
     worldX: number,
@@ -238,8 +264,18 @@ export class ParticleSystem {
     anchorX: number,
     anchorY: number,
     life = 0.16,
+    tintColor?: string,
   ): void {
-    this.afterimages.push({ canvas, worldX, worldY, anchorX, anchorY, life, maxLife: life });
+    this.afterimages.push({
+      canvas,
+      worldX,
+      worldY,
+      anchorX,
+      anchorY,
+      life,
+      maxLife: life,
+      tintColor,
+    });
   }
 
   addDamageNumber(x: number, y: number, text: string, color: string, isCrit = false): void {
@@ -274,10 +310,24 @@ export class ParticleSystem {
 
   update(dt: number, tileMap: TileMap, biomeId: BiomeId = 'sanctuary', camWorldX = 0, camWorldY = 0): void {
     this.weatherTimer -= dt;
-    if (this.weatherTimer <= 0 && biomeId !== 'sanctuary') {
-      this.weatherTimer = biomeId === 'crypt' ? 0.16 : 0.12;
+    if (this.weatherTimer <= 0) {
+      this.weatherTimer = biomeId === 'sanctuary' ? 0.20 : biomeId === 'crypt' ? 0.16 : 0.12;
       const wx = camWorldX + Math.random() * WORLD_VIEW_W;
-      if (biomeId === 'crypt') {
+      if (biomeId === 'sanctuary') {
+        // Gentle golden-cyan cathedral dust motes drifting through god-rays
+        this.particles.push({
+          x: wx,
+          y: camWorldY + 18 + Math.random() * (WORLD_VIEW_H * 0.65),
+          vx: 6 + Math.random() * 10,
+          vy: 5 + Math.random() * 8,
+          size: 1,
+          color: Math.random() < 0.65 ? '#ffe082' : '#7ef5eb',
+          life: 2.2,
+          maxLife: 2.2,
+          gravity: 0,
+          fade: true,
+        });
+      } else if (biomeId === 'crypt') {
         // Dripping cavern water droplets from ceiling
         this.particles.push({
           x: wx,
@@ -443,10 +493,11 @@ export class ParticleSystem {
 
     // Dodge/Shadow Step / Overdrive afterimages
     for (const a of this.afterimages) {
+      const sprite = a.tintColor ? this.getTintedSilhouette(a.canvas, a.tintColor) : a.canvas;
       ctx.save();
-      ctx.globalAlpha = Math.max(0, (a.life / a.maxLife) * 0.45);
+      ctx.globalAlpha = Math.max(0, (a.life / a.maxLife) * (a.tintColor ? 0.62 : 0.45));
       ctx.drawImage(
-        a.canvas,
+        sprite,
         Math.round(a.worldX * PIXEL_SCALE) - camPxX - a.anchorX,
         Math.round(a.worldY * PIXEL_SCALE) - camPxY - a.anchorY,
       );
@@ -531,6 +582,29 @@ export class ParticleSystem {
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  private getTintedSilhouette(src: HTMLCanvasElement, tintColor: string): HTMLCanvasElement {
+    let byColor = this.tintCache.get(src);
+    if (!byColor) {
+      byColor = new Map<string, HTMLCanvasElement>();
+      this.tintCache.set(src, byColor);
+    }
+    const cached = byColor.get(tintColor);
+    if (cached) return cached;
+
+    const c = document.createElement('canvas');
+    c.width = src.width;
+    c.height = src.height;
+    const tctx = c.getContext('2d')!;
+    tctx.imageSmoothingEnabled = false;
+    tctx.drawImage(src, 0, 0);
+    tctx.globalCompositeOperation = 'source-atop';
+    tctx.globalAlpha = 0.72;
+    tctx.fillStyle = tintColor;
+    tctx.fillRect(0, 0, c.width, c.height);
+    byColor.set(tintColor, c);
+    return c;
   }
 
   renderAmbientMotes(ctx: CanvasRenderingContext2D, color: string): void {

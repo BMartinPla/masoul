@@ -238,7 +238,7 @@ export class MasoulGame {
 
     if (this.screen === 'title') {
       this.player.animTime += dt;
-      this.camera.update(dt, 280 + Math.sin(this.worldTime * 0.28) * 140, 210, 1, 0);
+      this.camera.update(dt, 450 + Math.sin(this.worldTime * 0.22) * 240, 224, 1, 0);
       this.particles.update(dt, this.level.tileMap, this.level.biome, this.camera.x, this.camera.y);
       this.input.endFrame();
       return;
@@ -416,6 +416,40 @@ export class MasoulGame {
   }
 
   private updateAllProjectiles(dt: number): void {
+    // Emit continuous wake trail motes for active projectiles
+    for (const p of this.projectiles) {
+      if ((p.warnDelay !== undefined && p.warnDelay > 0) || Math.random() >= 0.35) continue;
+      if (p.kind === 'fireball' || p.kind === 'meteor' || p.kind === 'cinder_pillar' || p.kind === 'fire_chain') {
+        this.particles.spawnTrailMote(
+          p.x + (-3 + Math.random() * 6),
+          p.y + (-3 + Math.random() * 6),
+          -p.vx * 0.12 + (-10 + Math.random() * 20),
+          -18 - Math.random() * 18,
+          Math.random() < 0.5 ? '#ff9636' : '#ffd466',
+          p.kind === 'meteor' ? 2 : 1,
+          0.22,
+          -10,
+        );
+      } else if (p.kind === 'frost_bolt') {
+        this.particles.spawnTrailMote(p.x, p.y, -p.vx * 0.1, -8 + Math.random() * 16, '#d6fffa', 1, 0.2, 15);
+      } else if (p.kind === 'soul_skull' || p.kind === 'soul_wave') {
+        this.particles.spawnTrailMote(
+          p.x,
+          p.y,
+          -p.vx * 0.1,
+          -14 - Math.random() * 10,
+          Math.random() < 0.5 ? '#67d487' : '#7ef5eb',
+          1,
+          0.24,
+          -15,
+        );
+      } else if (p.kind === 'judgement_wave' || p.kind === 'holy_lance') {
+        this.particles.spawnTrailMote(p.x, p.y + (-4 + Math.random() * 8), -p.vx * 0.08, -6, '#ffe082', 1, 0.18, 0);
+      } else if (p.kind === 'dagger' || p.kind === 'blood_orb' || p.kind === 'spectral_blade') {
+        this.particles.spawnTrailMote(p.x, p.y, -p.vx * 0.08, -4 + Math.random() * 8, p.color, 1, 0.18, 25);
+      }
+    }
+
     // Player soul_skulls home toward nearest live enemy, while enemy orbs home toward player
     const playerTargetX = this.player.x;
     const playerTargetY = this.player.y - 14;
@@ -1353,16 +1387,35 @@ export class MasoulGame {
       if (p.kind === 'rose_window') {
         const win = ts.roseWindow[biomeId];
         ctx.drawImage(win, px - Math.floor(win.width * 0.5), py - Math.floor(win.height * 0.5));
+        const rayBreath = 0.85 + 0.15 * Math.sin(this.worldTime * 1.5 + p.x * 0.02);
+        const rayColor =
+          biomeId === 'catacombs'
+            ? '255, 107, 122'
+            : biomeId === 'ossuary'
+              ? '126, 245, 235'
+              : biomeId === 'citadel'
+                ? '255, 150, 54'
+                : '255, 224, 130';
+        const rays: ReadonlyArray<readonly [number, number, number, number, number]> = [
+          [-22, -6, 18, 56, 0.10],
+          [-4, 16, 48, 96, 0.13],
+          [12, 22, 82, 118, 0.08],
+        ];
         ctx.save();
-        ctx.fillStyle = BIOMES[biomeId].stoneAccent;
-        ctx.globalAlpha = 0.08;
-        ctx.beginPath();
-        ctx.moveTo(px - 21, py + 18);
-        ctx.lineTo(px + 21, py + 18);
-        ctx.lineTo(px + 98, py + 202);
-        ctx.lineTo(px + 27, py + 202);
-        ctx.closePath();
-        ctx.fill();
+        for (const [topL, topR, botL, botR, baseAlpha] of rays) {
+          const grad = ctx.createLinearGradient(px, py - 8, px + 60, py + 210);
+          grad.addColorStop(0, `rgba(${rayColor}, ${(baseAlpha * rayBreath).toFixed(3)})`);
+          grad.addColorStop(0.55, `rgba(${rayColor}, ${(baseAlpha * 0.45 * rayBreath).toFixed(3)})`);
+          grad.addColorStop(1, `rgba(${rayColor}, 0)`);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(px + topL, py + 12);
+          ctx.lineTo(px + topR, py + 12);
+          ctx.lineTo(px + botR, py + 210);
+          ctx.lineTo(px + botL, py + 210);
+          ctx.closePath();
+          ctx.fill();
+        }
         ctx.restore();
       } else if (p.kind === 'banner') {
         // Anchor banner to the nearest solid ceiling above with twin dark-iron suspension rods
@@ -1591,32 +1644,23 @@ export class MasoulGame {
       }
     }
 
-    // 6. Pickups (Souls, Gold, Meat) at native 1px Hi-Bit density
+    // 6. Pickups (Animated Souls, Rotating Gold Coins & Glazed Meat) at Hi-Bit density
     for (const pk of this.pickups) {
       const px = Math.round(pk.x * PIXEL_SCALE) - camPxX;
-      const py = Math.round((pk.y - 3 + Math.sin(this.worldTime * 5 + pk.x) * 1.5) * PIXEL_SCALE) - camPxY;
-      if (pk.kind === 'soul') {
-        ctx.fillStyle = '#0b0a12';
-        ctx.fillRect(px - 5, py - 5, 10, 10);
-        ctx.fillStyle = '#218196';
-        ctx.fillRect(px - 4, py - 4, 8, 8);
-        ctx.fillStyle = '#d6fffa';
-        ctx.fillRect(px - 2, py - 2, 4, 4);
-      } else if (pk.kind === 'gold') {
-        ctx.fillStyle = '#0b0a12';
-        ctx.fillRect(px - 4, py - 4, 9, 9);
-        ctx.fillStyle = '#b5792b';
-        ctx.fillRect(px - 3, py - 3, 7, 7);
-        ctx.fillStyle = '#fff6cc';
-        ctx.fillRect(px - 2, py - 2, 3, 3);
-      } else {
-        ctx.fillStyle = '#0b0a12';
-        ctx.fillRect(px - 6, py - 5, 12, 9);
-        ctx.fillStyle = '#991e36';
-        ctx.fillRect(px - 5, py - 4, 10, 7);
-        ctx.fillStyle = '#f0e6d2';
-        ctx.fillRect(px + 2, py - 3, 4, 3);
-      }
+      const groundY = Math.round(pk.y * PIXEL_SCALE) - camPxY;
+      const py = Math.round((pk.y - 4 + Math.sin(this.worldTime * 5 + pk.x) * 1.5) * PIXEL_SCALE) - camPxY;
+      ctx.fillStyle = 'rgba(7, 6, 11, 0.38)';
+      ctx.beginPath();
+      ctx.ellipse(px, groundY - 1, 5, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const sprite =
+        pk.kind === 'soul'
+          ? getAnimationFrame(ts.soulPickupAnim, this.worldTime + pk.x * 0.03, 1)
+          : pk.kind === 'gold'
+            ? getAnimationFrame(ts.goldCoinAnim, this.worldTime + pk.x * 0.05, 1)
+            : ts.meatPickup;
+      ctx.drawImage(sprite, px - Math.floor(sprite.width * 0.5), py - Math.floor(sprite.height * 0.5));
     }
 
     // 7. Enemies & Player (with grounded contact shadow & floating [F] indicator)
@@ -1679,6 +1723,40 @@ export class MasoulGame {
         intensity: 0.85,
         flicker: 0.05,
       });
+    }
+    if (this.player.bannerPos && this.player.bannerPos.timer > 0) {
+      dynamicLights.push({
+        x: this.player.bannerPos.x,
+        y: this.player.bannerPos.y - 22,
+        radius: 86,
+        color: '#ffe082',
+        intensity: 0.9,
+        flicker: 0.06,
+      });
+    }
+    for (const e of this.enemies) {
+      if (e.isElite && e.aiState !== 'dead') {
+        dynamicLights.push({
+          x: e.x,
+          y: e.y - e.def.height * 0.5,
+          radius: 64,
+          color: '#ffe082',
+          intensity: 0.72,
+          flicker: 0.07,
+        });
+      }
+    }
+    for (const pk of this.pickups) {
+      if (pk.kind === 'soul') {
+        dynamicLights.push({
+          x: pk.x,
+          y: pk.y - 4,
+          radius: 30,
+          color: '#7ef5eb',
+          intensity: 0.55,
+          flicker: 0.08,
+        });
+      }
     }
     if (this.activeBoss && this.activeBoss.hp > 0) {
       dynamicLights.push({
@@ -1784,78 +1862,202 @@ export class MasoulGame {
       const py = Math.round(p.y * PIXEL_SCALE) - camPxY;
 
       if (p.warnDelay !== undefined && p.warnDelay > 0) {
+        const pulse = 0.45 + 0.35 * Math.sin(this.worldTime * 28);
         ctx.save();
         ctx.strokeStyle = p.color;
-        ctx.globalAlpha = 0.55;
-        ctx.setLineDash([4, 4]);
+        ctx.globalAlpha = pulse;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 4]);
         ctx.beginPath();
         ctx.moveTo(px, py);
         ctx.lineTo(px, py + 255);
         ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = pulse * 0.45;
+        ctx.beginPath();
+        ctx.ellipse(px, py + 245, 16, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
         drawPixelText(ctx, '!', px, py + 36, { color: p.color, scale: 2, align: 'center' });
         continue;
       }
 
       if (p.kind === 'chain_hook' && p.originX !== undefined && p.originY !== undefined) {
-        ctx.strokeStyle = '#95a1c2';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(
-          Math.round(p.originX * PIXEL_SCALE) - camPxX,
-          Math.round(p.originY * PIXEL_SCALE) - camPxY,
-        );
-        ctx.lineTo(px, py);
-        ctx.stroke();
+        const ox = Math.round(p.originX * PIXEL_SCALE) - camPxX;
+        const oy = Math.round(p.originY * PIXEL_SCALE) - camPxY;
+        const dx = px - ox;
+        const dy = py - oy;
+        const dist = Math.max(1, Math.hypot(dx, dy));
+        const ang = Math.atan2(dy, dx);
+        const steps = Math.floor(dist / 6);
+        for (let s = 1; s < steps; s++) {
+          const lx = Math.round(ox + (dx * s) / steps);
+          const ly = Math.round(oy + (dy * s) / steps);
+          ctx.save();
+          ctx.translate(lx, ly);
+          ctx.rotate(ang);
+          ctx.fillStyle = '#0b0a12';
+          ctx.fillRect(-3, -2, 6, 4);
+          ctx.fillStyle = s % 2 === 0 ? '#cad5ed' : '#4f5670';
+          ctx.fillRect(-2, -1, 4, 2);
+          ctx.restore();
+        }
+        // 3-prong steel grappling claw head
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(ang);
+        ctx.fillStyle = '#0b0a12';
+        ctx.fillRect(-5, -6, 12, 12);
+        ctx.fillStyle = '#95a1c2';
+        ctx.fillRect(-4, -2, 10, 4);
+        ctx.fillStyle = '#f2f6ff';
+        ctx.fillRect(2, -5, 4, 2);
+        ctx.fillRect(2, 3, 4, 2);
+        ctx.fillRect(5, -1, 3, 2);
+        ctx.restore();
+        continue;
       }
 
       if (p.kind === 'cinder_pillar') {
-        const h = 64;
+        const h = 68;
+        const sway = Math.round(Math.sin(this.worldTime * 26 + p.x) * 3);
+        ctx.fillStyle = 'rgba(153, 30, 54, 0.65)';
+        ctx.beginPath();
+        ctx.ellipse(px, py + h * 0.5, 16, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Outer dark crimson rim & roaring amber body
+        ctx.fillStyle = '#991e36';
+        ctx.fillRect(px - 12, py - h / 2 + 6, 24, h - 6);
         ctx.fillStyle = p.color;
-        ctx.fillRect(px - 12, py - h / 2, 24, h);
+        ctx.fillRect(px - 10 + sway, py - h / 2 + 2, 20, h - 4);
+        ctx.fillRect(px - 6 - sway, py - h / 2 - 4, 12, 12);
+        // White-hot flickering core tongue
         ctx.fillStyle = p.coreColor;
-        ctx.fillRect(px - 6, py - h / 2 + 6, 12, h - 12);
+        ctx.fillRect(px - 5 + Math.round(sway * 0.5), py - h / 2 + 8, 10, h - 12);
+        ctx.fillRect(px - 2, py - h / 2 + 1, 4, 8);
       } else if (p.kind === 'judgement_wave' || p.kind === 'soul_wave') {
         const dir = p.vx >= 0 ? 1 : -1;
         const slices: ReadonlyArray<readonly [number, number, number, number]> = [
-          [-22, -7, 8, 5],
-          [-18, -3, 9, 6],
-          [-12, 1, 10, 24],
-          [12, -3, 9, 6],
-          [18, -7, 8, 5],
+          [-23, -8, 8, 5],
+          [-18, -3, 10, 6],
+          [-12, 1, 11, 24],
+          [12, -3, 10, 6],
+          [18, -8, 8, 5],
         ];
+        ctx.fillStyle = '#0b0a12';
+        for (const [dy, xOff, w, h] of slices) {
+          const sx = dir > 0 ? px + xOff : px - xOff - w;
+          ctx.fillRect(sx - 1, py + dy - 1, w + 2, h + 2);
+        }
         for (const [dy, xOff, w, h] of slices) {
           const sx = dir > 0 ? px + xOff : px - xOff - w;
           ctx.fillStyle = p.color;
           ctx.fillRect(sx, py + dy, w, h);
         }
         ctx.fillStyle = p.coreColor;
-        ctx.fillRect(dir > 0 ? px + 4 : px - 9, py - 14, 5, 28);
-        ctx.fillRect(dir > 0 ? px + 1 : px - 6, py - 18, 5, 6);
-        ctx.fillRect(dir > 0 ? px + 1 : px - 6, py + 12, 5, 6);
+        ctx.fillRect(dir > 0 ? px + 5 : px - 10, py - 14, 5, 28);
+        ctx.fillRect(dir > 0 ? px + 2 : px - 7, py - 18, 5, 6);
+        ctx.fillRect(dir > 0 ? px + 2 : px - 7, py + 12, 5, 6);
       } else if (p.kind === 'soul_skull') {
+        const dir = p.vx >= 0 ? 1 : -1;
+        const flicker = Math.round(Math.sin(this.worldTime * 22 + p.x) * 2);
+        // Trailing spectral flame plume
+        ctx.fillStyle = p.color;
+        ctx.fillRect(px - dir * 10, py - 3 + flicker, 6, 5);
+        ctx.fillRect(px - dir * 14, py - 1 - flicker, 4, 3);
+        // Outlined horned skull
         ctx.fillStyle = '#0b0a12';
         ctx.fillRect(px - 7, py - 6, 14, 12);
         ctx.fillStyle = p.color;
         ctx.fillRect(px - 6, py - 5, 12, 10);
         ctx.fillStyle = '#f0e6d2';
         ctx.fillRect(px - 4, py - 4, 8, 7);
+        ctx.fillRect(px - 2, py + 3, 5, 2);
+        // Glowing eye sockets
         ctx.fillStyle = '#0b0a12';
-        ctx.fillRect(px - 3, py - 2, 2, 3);
-        ctx.fillRect(px + 1, py - 2, 2, 3);
-      } else {
-        const pr = Math.max(3, Math.round(p.radius * PIXEL_SCALE));
-        ctx.fillStyle = '#0b0a12';
-        ctx.fillRect(px - pr - 1, py - pr - 1, pr * 2 + 2, pr * 2 + 2);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+        ctx.fillRect(px + dir * 1, py - 2, 2, 3);
+        ctx.fillRect(px - dir * 3, py - 2, 2, 3);
         ctx.fillStyle = p.coreColor;
-        ctx.fillRect(
-          px - Math.max(1, Math.floor(pr * 0.5)),
-          py - Math.max(1, Math.floor(pr * 0.5)),
-          Math.max(3, pr),
-          Math.max(3, pr),
-        );
+        ctx.fillRect(px + dir * 1, py - 1, 1, 1);
+      } else {
+        const ang = Math.atan2(p.vy, p.vx);
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(ang);
+
+        if (p.kind === 'bolt') {
+          ctx.fillStyle = '#0b0a12';
+          ctx.fillRect(-8, -3, 16, 6);
+          ctx.fillStyle = '#8a5534';
+          ctx.fillRect(-6, -1, 10, 2);
+          ctx.fillStyle = '#dce6fa';
+          ctx.fillRect(3, -2, 4, 4);
+          ctx.fillRect(7, -1, 2, 2);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-7, -2, 3, 1);
+          ctx.fillRect(-7, 1, 3, 1);
+        } else if (p.kind === 'dagger') {
+          ctx.fillStyle = '#0b0a12';
+          ctx.fillRect(-7, -3, 14, 6);
+          ctx.fillStyle = '#c99746';
+          ctx.fillRect(-3, -2, 2, 4);
+          ctx.fillStyle = '#dce6fa';
+          ctx.fillRect(-1, -1, 7, 2);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(2, -1, 5, 1);
+          ctx.fillRect(-6, -1, 3, 2);
+        } else if (p.kind === 'holy_lance' || p.kind === 'fire_chain') {
+          ctx.fillStyle = '#0b0a12';
+          ctx.fillRect(-10, -4, 20, 8);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-9, -2, 16, 4);
+          ctx.fillRect(-2, -4, 4, 8);
+          ctx.fillStyle = p.coreColor;
+          ctx.fillRect(-6, -1, 15, 2);
+        } else if (p.kind === 'spectral_blade') {
+          ctx.fillStyle = '#0b0a12';
+          ctx.fillRect(-5, -8, 11, 16);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-3, -7, 6, 14);
+          ctx.fillRect(2, -4, 3, 8);
+          ctx.fillStyle = p.coreColor;
+          ctx.fillRect(3, -5, 2, 10);
+        } else if (p.kind === 'frost_bolt') {
+          ctx.fillStyle = '#0b0a12';
+          ctx.fillRect(-8, -4, 16, 8);
+          ctx.fillStyle = '#3bc2cf';
+          ctx.fillRect(-7, -2, 12, 4);
+          ctx.fillRect(-2, -3, 7, 6);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(-4, -1, 11, 2);
+        } else if (p.kind === 'fireball' || p.kind === 'meteor') {
+          const s = p.kind === 'meteor' ? 1.5 : 1.0;
+          const tail = Math.round(Math.sin(this.worldTime * 30 + p.x) * 2);
+          ctx.fillStyle = '#991e36';
+          ctx.fillRect(Math.round(-12 * s), Math.round(-4 * s) + tail, Math.round(8 * s), Math.round(7 * s));
+          ctx.fillStyle = '#0b0a12';
+          ctx.fillRect(Math.round(-6 * s), Math.round(-5 * s), Math.round(12 * s), Math.round(10 * s));
+          ctx.fillStyle = p.color;
+          ctx.fillRect(Math.round(-5 * s), Math.round(-4 * s), Math.round(10 * s), Math.round(8 * s));
+          ctx.fillStyle = p.coreColor;
+          ctx.fillRect(Math.round(-2 * s), Math.round(-2 * s), Math.round(6 * s), Math.round(4 * s));
+        } else {
+          // blood_orb & fallback occult sphere with orbiting droplets
+          const pr = Math.max(4, Math.round(p.radius * PIXEL_SCALE));
+          ctx.fillStyle = '#0b0a12';
+          ctx.fillRect(-pr - 1, -pr - 1, pr * 2 + 2, pr * 2 + 2);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-pr, -pr, pr * 2, pr * 2);
+          ctx.fillStyle = p.coreColor;
+          ctx.fillRect(-Math.floor(pr * 0.5), -Math.floor(pr * 0.5), pr, pr);
+          const orbA = this.worldTime * 10 + p.x;
+          ctx.fillStyle = p.coreColor;
+          ctx.fillRect(Math.round(Math.cos(orbA) * (pr + 3)) - 1, Math.round(Math.sin(orbA) * (pr + 3)) - 1, 2, 2);
+          ctx.fillRect(Math.round(-Math.cos(orbA) * (pr + 3)) - 1, Math.round(-Math.sin(orbA) * (pr + 3)) - 1, 2, 2);
+        }
+
+        ctx.restore();
       }
     }
   }

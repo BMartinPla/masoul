@@ -95,6 +95,9 @@ export interface TilesetAssets {
   heroPedestal: HTMLCanvasElement;
   statue: Record<BiomeId, HTMLCanvasElement>;
   floorClutter: Record<BiomeId, [HTMLCanvasElement, HTMLCanvasElement, HTMLCanvasElement]>;
+  soulPickupAnim: SpriteAnimation;
+  goldCoinAnim: SpriteAnimation;
+  meatPickup: HTMLCanvasElement;
 }
 
 /** Mask bits: 1=top solid, 2=right solid, 4=bottom solid, 8=left solid */
@@ -573,6 +576,9 @@ function bakeProps(): Pick<
   | 'deedsLectern'
   | 'consecratedBanner'
   | 'heroPedestal'
+  | 'soulPickupAnim'
+  | 'goldCoinAnim'
+  | 'meatPickup'
 > {
   // Chest closed
   const cc = new PixelBuffer(24, 20, PIXEL_SCALE);
@@ -799,6 +805,50 @@ function bakeProps(): Pick<
   cbTotem.rect(8, 17, 8, 2, PAL.gold3);
   cbTotem.applyOutline(PAL.outline);
 
+  // Swirling Cyan-White Spectral Soul Flame Pickup (4f)
+  const soulBufs: PixelBuffer[] = [];
+  for (let i = 0; i < 4; i++) {
+    const sb = new PixelBuffer(10, 12, PIXEL_SCALE);
+    const sway = i === 1 ? -1 : i === 3 ? 1 : 0;
+    sb.poly(
+      [
+        [3, 9],
+        [5 + sway, 2 + (i % 2)],
+        [7, 9],
+      ],
+      PAL.soul1,
+    );
+    sb.shadedEllipse(5, 8, 3, 3, PAL.soul1, PAL.soul3, PAL.soul5);
+    sb.rect(4, 6, 2, 3, PAL.soul5);
+    sb.set(5 - sway, 1 + (i % 2), PAL.soul4);
+    sb.applyOutline(PAL.outline);
+    soulBufs.push(sb);
+  }
+
+  // Rotating Stamped Gold Sovereign Coin Pickup (4f)
+  const coinBufs: PixelBuffer[] = [];
+  const coinWidths = [7, 5, 2, 5];
+  for (let i = 0; i < 4; i++) {
+    const gc = new PixelBuffer(9, 9, PIXEL_SCALE);
+    const w = coinWidths[i]!;
+    const rx = Math.max(1, Math.floor((w - 1) * 0.5));
+    gc.shadedEllipse(4, 4, rx, 3, PAL.gold1, PAL.gold3, PAL.gold5);
+    if (w >= 5) {
+      gc.rect(4, 3, 1, 3, PAL.gold5);
+    }
+    gc.applyOutline(PAL.outline);
+    coinBufs.push(gc);
+  }
+
+  // Glazed Roast Drumstick Meat Pickup
+  const mp = new PixelBuffer(13, 10, PIXEL_SCALE);
+  mp.rect(8, 4, 4, 2, PAL.bone3);
+  mp.rect(10, 3, 2, 4, PAL.bone4);
+  mp.shadedEllipse(5, 5, 4, 3, PAL.crimson1, PAL.crimson3, PAL.ember3);
+  mp.set(4, 3, PAL.gold4);
+  mp.set(5, 3, PAL.gold4);
+  mp.applyOutline(PAL.outline);
+
   return {
     chestClosed: cc.toCanvas(),
     chestOpen: co.toCanvas(),
@@ -817,6 +867,9 @@ function bakeProps(): Pick<
     deedsLectern: dl.toCanvas(),
     consecratedBanner: cbTotem.toCanvas(),
     heroPedestal: bakeHeroPedestal(),
+    soulPickupAnim: bakeAnimation(soulBufs, 9, true),
+    goldCoinAnim: bakeAnimation(coinBufs, 8, true),
+    meatPickup: mp.toCanvas(),
   };
 }
 

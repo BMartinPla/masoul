@@ -669,6 +669,16 @@ export class Enemy {
         ctx.ellipse(sx, sy - 1, Math.round(this.def.width * 0.55), 3, 0, 0, Math.PI * 2);
         ctx.fill();
       }
+      if (this.isElite) {
+        ctx.save();
+        ctx.strokeStyle = '#ffe082';
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.45 + 0.2 * Math.sin(this.animTime * 6);
+        ctx.beginPath();
+        ctx.ellipse(sx, sy - 1, Math.round(this.def.width * 0.72), 4, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
       if (this.id === 'frost_wraith') {
         ctx.globalAlpha = this.animState === 'move' ? 0.68 : 0.9;
       }
@@ -721,6 +731,19 @@ export class Enemy {
       const fill = Math.max(1, Math.round((this.hp / this.maxHp) * barW));
       ctx.fillStyle = this.isElite ? '#ffe082' : '#d1364e';
       ctx.fillRect(bx, by, fill, 3);
+      if (this.isElite) {
+        const cx = sx - 4;
+        const cy = by - 6;
+        ctx.fillStyle = '#0b0a12';
+        ctx.fillRect(cx, cy, 9, 5);
+        ctx.fillStyle = '#ffe082';
+        ctx.fillRect(cx + 1, cy + 2, 7, 2);
+        ctx.fillRect(cx + 1, cy + 1, 1, 1);
+        ctx.fillRect(cx + 4, cy, 1, 2);
+        ctx.fillRect(cx + 7, cy + 1, 1, 1);
+        ctx.fillStyle = '#ff4d63';
+        ctx.fillRect(cx + 4, cy + 2, 1, 1);
+      }
     }
   }
 }

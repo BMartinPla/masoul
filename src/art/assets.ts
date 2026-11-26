@@ -10,8 +10,11 @@ import { bakeAllBiomeParallax, type BiomeParallaxLayers } from './backgroundArt.
 import { bakeAllCharacterSprites } from './characterSprites.ts';
 import { bakeAllEnemySprites } from './enemySprites.ts';
 import { bakeAllRelicIcons } from './relicIcons.ts';
+import { bakeAllSkillIcons, type SkillIconKey } from './skillIcons.ts';
 import { type SpriteSet } from './spriteAtlas.ts';
 import { bakeTilesetAssets, type TilesetAssets } from './tilesetArt.ts';
+
+export type { SkillIconKey };
 
 export interface GameAssets {
   characters: Record<CharacterId, SpriteSet<CharacterAnimState>>;
@@ -19,6 +22,7 @@ export interface GameAssets {
   tileset: TilesetAssets;
   parallax: Record<BiomeId, BiomeParallaxLayers>;
   relicIcons: Record<RelicId, HTMLCanvasElement>;
+  skillIcons: Record<SkillIconKey, HTMLCanvasElement>;
 }
 
 let cachedAssets: GameAssets | null = null;
@@ -31,6 +35,7 @@ export function getGameAssets(): GameAssets {
       tileset: bakeTilesetAssets(),
       parallax: bakeAllBiomeParallax(),
       relicIcons: bakeAllRelicIcons(),
+      skillIcons: bakeAllSkillIcons(),
     };
   }
   return cachedAssets;

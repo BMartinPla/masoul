@@ -31,6 +31,31 @@ function shortSkillLabel(name: string): string {
   return locShortSkill(name, en);
 }
 
+function drawGothicFrame(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  borderColor: string,
+  rivetColor = '#c99746',
+  bgAlpha = 0.88,
+): void {
+  ctx.fillStyle = `rgba(11, 10, 18, ${bgAlpha})`;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ctx.fillStyle = 'rgba(255, 243, 214, 0.06)';
+  ctx.fillRect(x + 1, y + 1, w - 2, 1);
+  // 2x2 gilded corner rivets
+  ctx.fillStyle = rivetColor;
+  ctx.fillRect(x, y, 2, 2);
+  ctx.fillRect(x + w - 2, y, 2, 2);
+  ctx.fillRect(x, y + h - 2, 2, 2);
+  ctx.fillRect(x + w - 2, y + h - 2, 2, 2);
+}
+
 export class HudRenderer {
   render(
     ctx: CanvasRenderingContext2D,
@@ -69,11 +94,16 @@ export class HudRenderer {
     }
 
     // 1. Top-left Hero Vitality & Resources Panel (Hi-Bit 640x360 proportions)
-    ctx.fillStyle = 'rgba(11, 10, 18, 0.86)';
-    ctx.fillRect(8, 8, 196, 46);
-    ctx.strokeStyle = player.overdriveTimer > 0 ? '#7ef5eb' : '#5a5475';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(8.5, 8.5, 195, 45);
+    drawGothicFrame(
+      ctx,
+      8,
+      8,
+      196,
+      46,
+      player.overdriveTimer > 0 ? '#7ef5eb' : '#5a5475',
+      player.overdriveTimer > 0 ? '#7ef5eb' : '#c99746',
+      0.88,
+    );
 
     // Portrait frame featuring live Hi-Bit Hero pixel bust (28x28)
     ctx.fillStyle = '#1b172c';
@@ -108,6 +138,14 @@ export class HudRenderer {
     const hpW = Math.round((Math.max(0, player.hp) / player.maxHp) * (barW - 2));
     ctx.fillStyle = player.hp < player.maxHp * 0.28 ? '#ff4d63' : '#c92a42';
     ctx.fillRect(barX + 1, barY + 1, hpW, barH - 2);
+    if (hpW > 2) {
+      ctx.fillStyle = 'rgba(255, 243, 214, 0.22)';
+      ctx.fillRect(barX + 1, barY + 1, hpW, 2);
+    }
+    ctx.fillStyle = 'rgba(11, 10, 18, 0.55)';
+    for (const frac of [0.25, 0.5, 0.75]) {
+      ctx.fillRect(barX + Math.round(barW * frac), barY + 1, 1, barH - 2);
+    }
     if (player.shieldHp > 0) {
       const shW = Math.min(barW - 2, Math.round((player.shieldHp / player.maxHp) * (barW - 2)));
       ctx.fillStyle = '#7ef5eb';
@@ -208,6 +246,7 @@ export class HudRenderer {
     }
 
     // 3. Bottom-Left Skill, Roll & Soul Surge Icons
+    const skillIcons = getGameAssets().skillIcons;
     this.renderSkillSlot(
       ctx,
       10,
@@ -217,6 +256,7 @@ export class HudRenderer {
       player.skill1Cooldown,
       player.def.skill1.cooldown,
       player.def.skill1.iconColor,
+      skillIcons[`${player.id}_1`],
     );
     this.renderSkillSlot(
       ctx,
@@ -227,6 +267,7 @@ export class HudRenderer {
       player.skill2Cooldown,
       player.def.skill2.cooldown,
       player.def.skill2.iconColor,
+      skillIcons[`${player.id}_2`],
     );
     this.renderSkillSlot(
       ctx,
@@ -237,6 +278,7 @@ export class HudRenderer {
       player.rollCooldown,
       0.42,
       '#cad5ed',
+      skillIcons.roll,
     );
     this.renderSurgeGauge(ctx, 148, VIEW_H - 40, player);
 
@@ -245,10 +287,8 @@ export class HudRenderer {
       const bw = 300;
       const bx = Math.round((VIEW_W - bw) * 0.5);
       const by = VIEW_H - 28;
-      ctx.fillStyle = 'rgba(11, 10, 18, 0.9)';
-      ctx.fillRect(bx - 5, by - 18, bw + 10, 34);
-      ctx.strokeStyle = activeBoss.phase === 2 ? '#ff6b7a' : '#c99746';
-      ctx.strokeRect(bx - 4.5, by - 17.5, bw + 9, 33);
+      const bossBorder = activeBoss.phase === 2 ? '#ff6b7a' : '#c99746';
+      drawGothicFrame(ctx, bx - 5, by - 18, bw + 10, 34, bossBorder, bossBorder, 0.9);
 
       const bossName = locEnemy(activeBoss.def).name.toUpperCase();
       const title = `${bossName}${activeBoss.phase === 2 ? ` [${tr('PHASE II', 'FASE II')}]` : ''}`;
@@ -269,6 +309,13 @@ export class HudRenderer {
       ctx.fillRect(bx, by, fill, 10);
       ctx.fillStyle = 'rgba(255,255,255,0.22)';
       ctx.fillRect(bx, by, fill, 2);
+      ctx.fillStyle = 'rgba(11, 10, 18, 0.55)';
+      ctx.fillRect(bx + Math.round(bw * 0.25), by, 1, 10);
+      ctx.fillRect(bx + Math.round(bw * 0.75), by, 1, 10);
+      // Central 50% Phase II golden diamond notch
+      const midX = bx + Math.round(bw * 0.5);
+      ctx.fillStyle = '#ffe082';
+      ctx.fillRect(midX - 1, by - 1, 3, 12);
     }
 
     // 5. Nearby Interaction Prompt (clear of Skill/Surge & Boss HUD)
@@ -296,10 +343,7 @@ export class HudRenderer {
       const bx = Math.round(VIEW_W * 0.5 - bw * 0.5);
       ctx.save();
       ctx.globalAlpha = Math.min(1, bannerAlpha);
-      ctx.fillStyle = 'rgba(11, 10, 18, 0.88)';
-      ctx.fillRect(bx, 84, bw, 24);
-      ctx.strokeStyle = '#c99746';
-      ctx.strokeRect(bx + 0.5, 84.5, bw - 1, 23);
+      drawGothicFrame(ctx, bx, 84, bw, 24, '#c99746', '#ffe082', 0.9);
       drawPixelText(ctx, bannerText, VIEW_W * 0.5, 92, {
         color: '#fff3d6',
         align: 'center',
@@ -318,17 +362,25 @@ export class HudRenderer {
     cd: number,
     maxCd: number,
     color: string,
+    icon?: HTMLCanvasElement,
   ): void {
     const ready = cd <= 0.01;
     const slotW = 40;
     const slotH = 32;
-    ctx.fillStyle = 'rgba(11, 10, 18, 0.86)';
-    ctx.fillRect(x, y, slotW, slotH);
-    ctx.strokeStyle = ready ? color : '#47425e';
-    ctx.strokeRect(x + 0.5, y + 0.5, slotW - 1, slotH - 1);
+    drawGothicFrame(ctx, x, y, slotW, slotH, ready ? color : '#47425e', ready ? color : '#5a5475', 0.88);
 
-    ctx.fillStyle = ready ? color : '#312c4a';
-    ctx.fillRect(x + 25, y + 5, 9, 9);
+    // Subtle backing box + crisp 14x14 pixel-art skill icon
+    ctx.fillStyle = ready ? 'rgba(27, 23, 44, 0.9)' : 'rgba(15, 13, 24, 0.7)';
+    ctx.fillRect(x + 22, y + 3, 15, 15);
+    if (icon) {
+      ctx.save();
+      if (!ready) ctx.globalAlpha = 0.45;
+      ctx.drawImage(icon, x + 23, y + 4);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = ready ? color : '#312c4a';
+      ctx.fillRect(x + 25, y + 5, 9, 9);
+    }
 
     if (!ready) {
       const ratio = Math.min(1, cd / Math.max(0.1, maxCd));
@@ -353,10 +405,8 @@ export class HudRenderer {
     const w = 62;
     const h = 32;
     const ready = player.surge >= 100 || player.overdriveTimer > 0;
-    ctx.fillStyle = 'rgba(11, 10, 18, 0.86)';
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = player.overdriveTimer > 0 ? '#ffe082' : ready ? '#7ef5eb' : '#47425e';
-    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    const surgeColor = player.overdriveTimer > 0 ? '#ffe082' : ready ? '#7ef5eb' : '#47425e';
+    drawGothicFrame(ctx, x, y, w, h, surgeColor, ready ? '#7ef5eb' : '#5a5475', 0.88);
 
     // Fill bar
     ctx.fillStyle = '#121c24';
